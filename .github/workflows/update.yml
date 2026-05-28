@@ -52,11 +52,14 @@ jobs:
 
       - name: Commit y push de data.json
         if: always()
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "bot: actualizar data.json [$(date -u +'%Y-%m-%d %H:%M UTC')]"
-          file_pattern: 'docs/data.json'
-          commit_user_name: 'stock-screener-bot'
-          commit_user_email: 'bot@users.noreply.github.com'
-          commit_author: 'stock-screener-bot <bot@users.noreply.github.com>'
-          skip_dirty_check: false
+        run: |
+          git config user.name "stock-screener-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add docs/data.json
+          if git diff --cached --quiet; then
+            echo "Sin cambios en data.json, nada que commitear"
+          else
+            git commit -m "bot: actualizar data.json [$(date -u +'%Y-%m-%d %H:%M UTC')]"
+            git pull --rebase origin master
+            git push origin master
+          fi
