@@ -1,6 +1,6 @@
 # scoring.py — Sistema de puntuación 0-100 y veredictos
 
-from .benchmarks import get_benchmark
+from benchmarks import get_benchmark
 
 
 def clamp(val, min_val=0, max_val=100):
