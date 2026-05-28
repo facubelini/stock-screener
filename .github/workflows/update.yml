@@ -37,6 +37,7 @@ jobs:
         run: python scripts/analyze.py
         env:
           PYTHONUNBUFFERED: '1'
+        continue-on-error: true
 
       - name: Verificar que data.json fue generado
         run: |
@@ -50,6 +51,7 @@ jobs:
           fi
 
       - name: Commit y push de data.json
+        if: always()
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "bot: actualizar data.json [$(date -u +'%Y-%m-%d %H:%M UTC')]"

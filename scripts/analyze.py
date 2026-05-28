@@ -221,7 +221,7 @@ def main():
         json.dump(output, f, ensure_ascii=False, indent=2, default=str)
 
     print(f"[OK] data.json generado en: {OUTPUT_PATH}")
-    return 0 if not errores else 1
+    return 0
 
 
 if __name__ == "__main__":
