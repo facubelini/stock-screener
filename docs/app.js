@@ -451,6 +451,20 @@ async function fileToBase64(file) {
   });
 }
 
+// Normaliza un nombre de columna: minúsculas sin tildes para comparar flexible
+function normCol(s) {
+  return String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+}
+
+// Candidatos de nombre para la columna de tickers (normalizados)
+const TICKER_COL_CANDIDATES = ['ticker', 'codigo', 'symbol', 'simbolo', 'accion', 'code', 'isin'];
+
+function detectTickerKey(rows) {
+  if (!rows.length) return null;
+  const keys = Object.keys(rows[0]);
+  return keys.find(k => TICKER_COL_CANDIDATES.includes(normCol(k))) ?? keys[0] ?? null;
+}
+
 function countTickersInFile(file) {
   return new Promise(resolve => {
     const reader = new FileReader();
@@ -459,7 +473,9 @@ function countTickersInFile(file) {
         const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
         const ws = wb.Sheets['Tickers'] ?? wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(ws);
-        resolve(rows.filter(r => r.Ticker || r.ticker).length);
+        const key = detectTickerKey(rows);
+        if (!key) { resolve(0); return; }
+        resolve(rows.filter(r => r[key] && String(r[key]).trim().length > 0).length);
       } catch { resolve(0); }
     };
     reader.onerror = () => resolve(0);

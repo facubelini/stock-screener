@@ -24,21 +24,66 @@ EXCEL_PATH = ROOT / "tickers.xlsx"
 OUTPUT_PATH = ROOT / "docs" / "data.json"
 
 
+def _norm(s: str) -> str:
+    """Normaliza nombre de columna: minúsculas sin tildes."""
+    import unicodedata
+    return unicodedata.normalize("NFD", str(s).lower().strip()).encode("ascii", "ignore").decode()
+
+
+TICKER_COL_CANDIDATES = ["ticker", "codigo", "symbol", "simbolo", "accion", "code"]
+NOMBRE_COL_CANDIDATES = ["nombre", "name", "company", "empresa"]
+CAT_COL_CANDIDATES    = ["categoria", "category", "sector", "grupo"]
+NOTAS_COL_CANDIDATES  = ["notas", "notes", "nota", "comentario"]
+
+
+def _find_col(df: "pd.DataFrame", candidates: list[str]):
+    """Devuelve el nombre real de la primera columna que coincida (case/accent-insensitive)."""
+    col_map = {_norm(c): c for c in df.columns}
+    for cand in candidates:
+        if cand in col_map:
+            return col_map[cand]
+    return None
+
+
 def leer_tickers(path: Path) -> list[dict]:
-    """Lee el archivo Excel y devuelve lista de dicts con info de cada ticker."""
-    df = pd.read_excel(path, sheet_name="Tickers", engine="openpyxl")
-    df.columns = [c.strip() for c in df.columns]
+    """Lee el archivo Excel y devuelve lista de dicts con info de cada ticker.
+
+    Acepta cualquier nombre de columna para el ticker: 'Ticker', 'Código', 'Symbol', etc.
+    Las columnas opcionales Nombre, Categoría y Notas son detectadas de forma flexible.
+    Si no hay coincidencia se usa la primera columna como ticker.
+    """
+    # Intentar hoja 'Tickers'; si no existe usar la primera hoja
+    try:
+        df = pd.read_excel(path, sheet_name="Tickers", engine="openpyxl")
+    except Exception:
+        df = pd.read_excel(path, sheet_name=0, engine="openpyxl")
+
+    df.columns = [str(c).strip() for c in df.columns]
+
+    # Detectar columna de tickers
+    ticker_col = _find_col(df, TICKER_COL_CANDIDATES) or df.columns[0]
+    nombre_col = _find_col(df, NOMBRE_COL_CANDIDATES)
+    cat_col    = _find_col(df, CAT_COL_CANDIDATES)
+    notas_col  = _find_col(df, NOTAS_COL_CANDIDATES)
+
+    print(f"[analyze] Columna ticker detectada: '{ticker_col}' | Hojas: {pd.ExcelFile(path, engine='openpyxl').sheet_names}")
+
+    def safe_str(row, col):
+        if col is None:
+            return ""
+        val = row.get(col)
+        return str(val).strip() if pd.notna(val) else ""
 
     tickers = []
     for _, row in df.iterrows():
-        ticker = str(row.get("Ticker", "")).strip().upper()
+        ticker = str(row.get(ticker_col, "")).strip().upper()
         if not ticker or ticker == "NAN":
             continue
         tickers.append({
-            "ticker": ticker,
-            "nombre": str(row.get("Nombre", "")).strip() if pd.notna(row.get("Nombre")) else "",
-            "categoria": str(row.get("Categoría", "")).strip() if pd.notna(row.get("Categoría")) else "",
-            "notas": str(row.get("Notas", "")).strip() if pd.notna(row.get("Notas")) else "",
+            "ticker":    ticker,
+            "nombre":    safe_str(row, nombre_col),
+            "categoria": safe_str(row, cat_col),
+            "notas":     safe_str(row, notas_col),
         })
 
     print(f"[analyze] Tickers encontrados en Excel: {len(tickers)}")
