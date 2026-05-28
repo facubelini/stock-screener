@@ -666,6 +666,106 @@ select:focus, input:focus {
   border-left: 2px solid var(--border);
 }
 
+/* ── Explicación del veredicto (resumen en la card) ── */
+.card-explicacion {
+  padding: 7px 16px 9px;
+  font-size: 0.69rem;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  border-top: 1px solid var(--border-light);
+  background: rgba(0,0,0,0.12);
+}
+
+/* ── Razonamiento del veredicto (sección expandida) ── */
+
+/* Tabla de metodología del score */
+.razon-metodologia {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-bottom: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+}
+
+.razon-met-item {
+  display: grid;
+  grid-template-columns: 72px 32px 54px 1fr;
+  align-items: start;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-light);
+}
+.razon-met-item:last-child { border-bottom: none; }
+
+.razon-met-label {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  padding-top: 1px;
+}
+
+.razon-met-peso {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  color: var(--text-muted);
+  text-align: right;
+  padding-top: 1px;
+}
+
+.razon-met-val {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-align: right;
+  padding-top: 1px;
+}
+
+.razon-met-desc {
+  font-size: 0.63rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* Grupos fortalezas / debilidades */
+.razon-group { margin-bottom: 10px; }
+.razon-group:last-child { margin-bottom: 0; }
+
+.razon-group-title {
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  margin-bottom: 6px;
+}
+
+.razon-title-pos { color: var(--green); }
+.razon-title-neg { color: var(--orange); }
+
+.razon-item {
+  font-size: 0.7rem;
+  line-height: 1.55;
+  padding: 5px 10px;
+  border-radius: 4px;
+  margin-bottom: 4px;
+  color: var(--text-secondary);
+}
+
+.razon-positivo {
+  border-left: 2px solid rgba(63, 185, 80, 0.5);
+  background: rgba(63, 185, 80, 0.04);
+}
+.razon-positivo::first-line { color: var(--green); }
+
+.razon-negativo {
+  border-left: 2px solid rgba(255, 166, 87, 0.5);
+  background: rgba(255, 166, 87, 0.04);
+}
+
 /* Error card */
 .error-card-body { padding: 14px 16px; font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); }
 .error-msg { color: var(--red); font-size: 0.68rem; margin-top: 4px; word-break: break-all; }

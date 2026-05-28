@@ -656,6 +656,254 @@ function scoreRing(score) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// ANÁLISIS — GENERADOR DE PUNTOS CLAVE Y EXPLICACIÓN DEL VEREDICTO
+// Genera fortalezas/debilidades en lenguaje natural a partir de los datos
+// de la acción. Todo se calcula client-side para no requerir nuevo análisis.
+// ═══════════════════════════════════════════════════════════════════════
+
+function generarPuntosClave(acc) {
+  const v   = acc.ratios?.valoracion   || {};
+  const ren = acc.ratios?.rentabilidad || {};
+  const sol = acc.ratios?.solvencia    || {};
+  const cre = acc.ratios?.crecimiento  || {};
+  const cf  = acc.ratios?.cashflow     || {};
+  const bc  = acc.benchmark_comparison || {};
+  const bm  = bc.benchmark_used        || {};
+  const val = acc.valuacion            || {};
+
+  const fortalezas  = [];
+  const debilidades = [];
+
+  // Upside promedio DCF + Graham
+  const upsArr = [val.dcf?.upside_pct, val.graham?.upside_pct].filter(x => x != null);
+  const avgUp  = upsArr.length ? upsArr.reduce((a, b) => a + b, 0) / upsArr.length : null;
+
+  // ── VALORACIÓN ────────────────────────────────────────────────────────
+  const pe   = fmtRaw(v.pe);
+  const peBm = bm.pe ?? null;
+
+  if (pe !== null && peBm) {
+    const ratio = pe / peBm;
+    if (ratio <= 0.75)
+      fortalezas.push({ texto: `P/E de ${pe.toFixed(1)}x, un ${Math.round((1 - ratio) * 100)}% más barato que su sector (${peBm.toFixed(0)}x)`, cat: 'valoracion' });
+    else if (ratio >= 1.5)
+      debilidades.push({ texto: `P/E de ${pe.toFixed(1)}x, un ${Math.round((ratio - 1) * 100)}% más caro que su sector (${peBm.toFixed(0)}x)`, cat: 'valoracion' });
+  } else if (pe !== null) {
+    if (pe <= 10 && pe > 0)
+      fortalezas.push({ texto: `P/E muy bajo de ${pe.toFixed(1)}x — se paga poco por cada $1 de ganancia`, cat: 'valoracion' });
+    else if (pe >= 50)
+      debilidades.push({ texto: `P/E muy elevado de ${pe.toFixed(0)}x — se paga mucho por cada $1 de ganancia`, cat: 'valoracion' });
+  }
+
+  if (avgUp !== null) {
+    if (avgUp >= 20)
+      fortalezas.push({ texto: `Potencial alcista de +${Math.round(avgUp)}% según valuación intrínseca (DCF / Graham)`, cat: 'valoracion' });
+    else if (avgUp >= 8)
+      fortalezas.push({ texto: `Leve upside de +${Math.round(avgUp)}% respecto al valor intrínseco`, cat: 'valoracion' });
+    else if (avgUp <= -20)
+      debilidades.push({ texto: `Cotiza un ${Math.round(Math.abs(avgUp))}% por encima de su valor intrínseco`, cat: 'valoracion' });
+  }
+
+  const peg = fmtRaw(v.peg);
+  if (peg !== null && peg > 0) {
+    if (peg < 1.0)
+      fortalezas.push({ texto: `PEG de ${peg.toFixed(2)}x — el crecimiento justifica (o supera) el precio que se paga`, cat: 'valoracion' });
+    else if (peg > 2.5)
+      debilidades.push({ texto: `PEG de ${peg.toFixed(1)}x — el precio parece caro relativo al crecimiento esperado`, cat: 'valoracion' });
+  }
+
+  // ── CALIDAD / RENTABILIDAD ────────────────────────────────────────────
+  const roe  = fmtRaw(ren.roe);
+  const roic = fmtRaw(ren.roic);
+  const nm   = fmtRaw(ren.net_margin);
+  const gm   = fmtRaw(ren.gross_margin);
+  const rg   = fmtRaw(cre.revenue_growth);
+  const eg   = fmtRaw(cre.earnings_growth);
+  const fcfY = fmtRaw(cf.fcf_yield);
+  const nmBm = bm.net_margin != null ? bm.net_margin * 100 : null;
+
+  if (roe !== null) {
+    if (roe >= 25)
+      fortalezas.push({ texto: `ROE del ${Math.round(roe)}% — por cada $100 de capital propio, genera $${Math.round(roe)} de ganancia neta (excelente, Buffett busca >15%)`, cat: 'calidad' });
+    else if (roe >= 15)
+      fortalezas.push({ texto: `ROE sólido del ${Math.round(roe)}% — rentabilidad sobre capital propio por encima del mínimo recomendado`, cat: 'calidad' });
+    else if (roe < 0)
+      debilidades.push({ texto: `ROE negativo (${roe.toFixed(1)}%) — la empresa destruye capital propio`, cat: 'calidad' });
+    else if (roe < 5)
+      debilidades.push({ texto: `ROE muy bajo del ${roe.toFixed(1)}% — baja eficiencia sobre el capital invertido`, cat: 'calidad' });
+  }
+
+  if (roic !== null) {
+    if (roic >= 20)
+      fortalezas.push({ texto: `ROIC del ${Math.round(roic)}% — ventaja competitiva fuerte: genera $${(roic / 100).toFixed(2)} por cada $1 invertido en el negocio`, cat: 'calidad' });
+    else if (roic >= 12)
+      fortalezas.push({ texto: `ROIC bueno del ${Math.round(roic)}% — supera el costo del capital del sector`, cat: 'calidad' });
+    else if (roic < 0)
+      debilidades.push({ texto: `ROIC negativo (${roic.toFixed(1)}%) — el negocio destruye valor`, cat: 'calidad' });
+    else if (roic < 5)
+      debilidades.push({ texto: `ROIC bajo del ${roic.toFixed(1)}% — difícil cubrir el costo del capital`, cat: 'calidad' });
+  }
+
+  if (nm !== null) {
+    const thr = nmBm ? Math.max(nmBm * 1.3, 15) : 15;
+    if (nm >= thr)
+      fortalezas.push({ texto: `Margen neto del ${nm.toFixed(0)}%${nmBm ? ` vs sector ${nmBm.toFixed(0)}%` : ''} — alta rentabilidad por cada dólar vendido`, cat: 'calidad' });
+    else if (nm < 0)
+      debilidades.push({ texto: `Pérdida neta: margen del ${nm.toFixed(1)}% — por cada $100 vendidos, pierde $${Math.abs(nm).toFixed(1)}`, cat: 'calidad' });
+    else if (nmBm && nm < nmBm * 0.5 && nmBm > 4)
+      debilidades.push({ texto: `Margen neto del ${nm.toFixed(1)}%, por debajo del sector (${nmBm.toFixed(0)}%)`, cat: 'calidad' });
+  }
+
+  if (gm !== null && gm >= 60)
+    fortalezas.push({ texto: `Margen bruto del ${Math.round(gm)}% — alto poder de pricing sobre sus costos`, cat: 'calidad' });
+
+  if (rg !== null) {
+    if (rg >= 20)
+      fortalezas.push({ texto: `Fuerte crecimiento de ventas: +${Math.round(rg)}% vs el año anterior`, cat: 'calidad' });
+    else if (rg >= 8)
+      fortalezas.push({ texto: `Crecimiento de ventas del ${rg.toFixed(0)}% YoY`, cat: 'calidad' });
+    else if (rg < -5)
+      debilidades.push({ texto: `Ventas en caída: ${rg.toFixed(1)}% vs el año anterior`, cat: 'calidad' });
+    else if (rg < 3 && rg >= 0)
+      debilidades.push({ texto: `Crecimiento de ventas muy lento: ${rg.toFixed(1)}% YoY`, cat: 'calidad' });
+  }
+
+  if (eg !== null) {
+    if (eg >= 20)
+      fortalezas.push({ texto: `EPS creciendo +${Math.round(eg)}% YoY — las ganancias escalan más rápido que las ventas`, cat: 'calidad' });
+    else if (eg < -15)
+      debilidades.push({ texto: `EPS cayendo ${Math.round(Math.abs(eg))}% YoY — las ganancias se deterioran`, cat: 'calidad' });
+  }
+
+  if (fcfY !== null) {
+    if (fcfY >= 6)
+      fortalezas.push({ texto: `FCF Yield del ${fcfY.toFixed(1)}% — genera mucho efectivo libre para recompras, dividendos o reinversión`, cat: 'calidad' });
+    else if (fcfY < 0)
+      debilidades.push({ texto: `Free Cash Flow negativo (${fcfY.toFixed(1)}%) — consume más caja de la que genera`, cat: 'calidad' });
+  }
+
+  // ── SALUD FINANCIERA ──────────────────────────────────────────────────
+  const de   = fmtRaw(sol.debt_equity);
+  const ic   = fmtRaw(sol.interest_coverage);
+  const curR = fmtRaw(sol.current_ratio);
+  const ndEb = fmtRaw(sol.net_debt_ebitda);
+
+  if (ndEb !== null) {
+    if (ndEb < 0)
+      fortalezas.push({ texto: `Posición de caja neta — tiene más efectivo que deuda (señal muy positiva)`, cat: 'salud' });
+    else if (ndEb >= 5)
+      debilidades.push({ texto: `Deuda Neta/EBITDA de ${ndEb.toFixed(1)}x — necesitaría ~${Math.ceil(ndEb)} años para pagar toda la deuda`, cat: 'salud' });
+    else if (ndEb >= 3.5)
+      debilidades.push({ texto: `Apalancamiento elevado: ${ndEb.toFixed(1)}x Deuda Neta/EBITDA`, cat: 'salud' });
+  } else if (de !== null) {
+    if (de <= 20)
+      fortalezas.push({ texto: `Balance muy sólido: D/E del ${Math.round(de)}%, casi sin deuda`, cat: 'salud' });
+    else if (de >= 300)
+      debilidades.push({ texto: `Deuda muy alta: D/E del ${Math.round(de)}%`, cat: 'salud' });
+    else if (de >= 150)
+      debilidades.push({ texto: `Apalancamiento elevado: D/E del ${Math.round(de)}%`, cat: 'salud' });
+  }
+
+  if (ic !== null) {
+    if (ic >= 10)
+      fortalezas.push({ texto: `Cubre sus intereses ${ic.toFixed(0)}x con el EBIT — posición financiera muy segura`, cat: 'salud' });
+    else if (ic < 1.5 && ic > 0)
+      debilidades.push({ texto: `Cobertura de intereses baja (${ic.toFixed(1)}x) — riesgo de default si caen las ganancias`, cat: 'salud' });
+  }
+
+  if (curR !== null) {
+    if (curR >= 2.5)
+      fortalezas.push({ texto: `Liquidez muy sólida: Current Ratio de ${curR.toFixed(1)}x`, cat: 'salud' });
+    else if (curR < 1)
+      debilidades.push({ texto: `Liquidez ajustada: Current Ratio de ${curR.toFixed(1)}x — los pasivos corrientes superan los activos corrientes`, cat: 'salud' });
+  }
+
+  return { fortalezas, debilidades };
+}
+
+/**
+ * Genera un resumen de 1-3 frases para mostrar en la card.
+ * Toma los puntos más representativos de valoración y calidad.
+ */
+function generarExplicacion(acc) {
+  const sc = acc.scoring || {};
+  const veredicto = sc.veredicto || 'JUSTA';
+  const { fortalezas, debilidades } = generarPuntosClave(acc);
+
+  if (!fortalezas.length && !debilidades.length) {
+    if (veredicto === 'BARATA') return 'Valoración atractiva relativa al sector. Datos limitados para más detalle.';
+    if (veredicto === 'CARA')   return 'Cotiza con prima respecto al sector y al valor intrínseco. Datos limitados.';
+    return 'Valoración en línea con el sector. Datos insuficientes para análisis detallado.';
+  }
+
+  const pick = (arr, cat, n) => arr.filter(p => p.cat === cat).slice(0, n).map(p => p.texto);
+  const puntos = [
+    ...pick(fortalezas, 'valoracion', 1),
+    ...pick(fortalezas, 'calidad', 1),
+    ...pick(debilidades, 'valoracion', 1),
+    ...pick(debilidades, 'calidad', 1),
+  ].filter(Boolean).slice(0, 3);
+
+  return (puntos.length
+    ? puntos
+    : [...fortalezas.slice(0, 2), ...debilidades.slice(0, 1)].map(p => p.texto)
+  ).join('. ') + '.';
+}
+
+/**
+ * Renderiza la sección completa "¿Por qué este veredicto?" para el expanded.
+ * Muestra: metodología del score + fortalezas + debilidades detectadas.
+ */
+function renderRazonamiento(acc) {
+  const sc = acc.scoring || {};
+  const { fortalezas, debilidades } = generarPuntosClave(acc);
+
+  // ── Tabla de metodología ────────────────────────────────────────────
+  const metItems = [
+    { label: 'VALORACIÓN', peso: '40%', key: 'score_valoracion',
+      desc: 'Compara P/E, EV/EBITDA, P/B vs mediana sectorial + upside DCF/Graham' },
+    { label: 'CALIDAD',    peso: '40%', key: 'score_calidad',
+      desc: 'ROE, ROIC, márgenes, crecimiento de ventas y EPS' },
+    { label: 'SALUD',      peso: '20%', key: 'score_salud',
+      desc: 'Deuda/EBITDA, Deuda/Equity, liquidez y cobertura de intereses' },
+  ];
+
+  const metodologia = `<div class="razon-metodologia">
+    ${metItems.map(m => {
+      const val = sc[m.key];
+      const cls = scoreColor(val);
+      const disp = val != null ? Math.round(val) : '—';
+      return `<div class="razon-met-item">
+        <span class="razon-met-label">${m.label}</span>
+        <span class="razon-met-peso">${m.peso}</span>
+        <span class="razon-met-val ${cls}">${disp}/100</span>
+        <span class="razon-met-desc">${m.desc}</span>
+      </div>`;
+    }).join('')}
+  </div>`;
+
+  // ── Lista de fortalezas ─────────────────────────────────────────────
+  const fortHtml = fortalezas.length ? `<div class="razon-group">
+    <div class="razon-group-title razon-title-pos">● PUNTOS POSITIVOS</div>
+    ${fortalezas.map(p => `<div class="razon-item razon-positivo">✓ ${p.texto}</div>`).join('')}
+  </div>` : '';
+
+  // ── Lista de debilidades ────────────────────────────────────────────
+  const debHtml = debilidades.length ? `<div class="razon-group">
+    <div class="razon-group-title razon-title-neg">● PUNTOS DE ATENCIÓN</div>
+    ${debilidades.map(p => `<div class="razon-item razon-negativo">✗ ${p.texto}</div>`).join('')}
+  </div>` : '';
+
+  // Fallback si no hay ningún punto detectado
+  const noData = !fortalezas.length && !debilidades.length
+    ? `<div style="font-size:.7rem;color:var(--text-muted);font-style:italic;padding:6px 0">
+        Datos insuficientes para generar un análisis detallado de esta acción.
+      </div>` : '';
+
+  return metodologia + fortHtml + debHtml + noData;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // RENDER: SCORE CIRCLE
 // ═══════════════════════════════════════════════════════════════════════
 function renderScoreCircle(score, size = 68) {
@@ -770,6 +1018,7 @@ function renderCard(acc) {
         <div class="senal-pill ${senalClass(sc.señal)}">${sc.señal || '—'}</div>
       </div>
     </div>
+    <div class="card-explicacion">${generarExplicacion(acc)}</div>
 
     <div class="card-price-row">
       <span class="price-current">${precio ? fmtCurrency(precio, acc.currency) : 'N/D'}</span>
@@ -809,6 +1058,12 @@ function renderExpanded(acc) {
   const val = acc.valuacion           || {};
   const bc  = acc.benchmark_comparison || {};
   const bm  = bc.benchmark_used       || {};
+
+  // ── ¿Por qué este veredicto? ─────────────────────────────────────────
+  const razonHtml = `<div class="expanded-section">
+    <div class="expanded-title">¿POR QUÉ ESTE VEREDICTO?</div>
+    ${renderRazonamiento(acc)}
+  </div>`;
 
   const valHtml = `<div class="expanded-section">
     <div class="expanded-title">VALUACIÓN INTRÍNSECA</div>
@@ -896,7 +1151,7 @@ function renderExpanded(acc) {
     <div class="notes-text">${acc.notas}</div>
   </div>` : '';
 
-  return valHtml + ratiosHtml + bmHtml + descHtml + notasHtml;
+  return razonHtml + valHtml + ratiosHtml + bmHtml + descHtml + notasHtml;
 }
 
 function renderValCard(obj, label) {
