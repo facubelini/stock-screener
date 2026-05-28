@@ -1,0 +1,1 @@
+# Paquete scripts — Stock Screener

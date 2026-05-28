@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stock Screener — Análisis Fundamental</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="site-header">
+    <div class="header-content">
+      <div class="header-left">
+        <h1 class="site-title">
+          <span class="title-icon">◈</span>
+          STOCK SCREENER
+          <span class="title-sub">Análisis Fundamental</span>
+        </h1>
+      </div>
+      <div class="header-right">
+        <div class="update-info">
+          <span class="update-label">ÚLTIMA ACTUALIZACIÓN</span>
+          <span class="update-date" id="updateDate">Cargando...</span>
+        </div>
+        <div class="stats-bar">
+          <span class="stat-item"><span id="statTotal">—</span> tickers</span>
+          <span class="stat-sep">·</span>
+          <span class="stat-item stat-ok"><span id="statOk">—</span> OK</span>
+          <span class="stat-sep">·</span>
+          <span class="stat-item stat-err"><span id="statErr">—</span> errores</span>
+        </div>
+      </div>
+    </div>
+    <div class="disclaimer-bar">
+      ⚠ DISCLAIMER: Esto NO es asesoramiento financiero. Análisis cuantitativo para uso educativo.
+      Los datos pueden contener errores o estar desactualizados. No tomar decisiones de inversión basadas en esta herramienta.
+    </div>
+  </header>
+
+  <!-- CONTROLES -->
+  <div class="controls-bar">
+    <div class="filters">
+      <div class="filter-group">
+        <label>CATEGORÍA</label>
+        <select id="filterCategoria">
+          <option value="">Todas</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>VEREDICTO</label>
+        <select id="filterVeredicto">
+          <option value="">Todos</option>
+          <option value="BARATA">BARATA</option>
+          <option value="JUSTA">JUSTA</option>
+          <option value="CARA">CARA</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>SEÑAL</label>
+        <select id="filterSenal">
+          <option value="">Todas</option>
+          <option value="OPORTUNIDAD DE COMPRA">OPORTUNIDAD</option>
+          <option value="COMPRA MODERADA">COMPRA MODERADA</option>
+          <option value="MANTENER">MANTENER</option>
+          <option value="EVITAR">EVITAR</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>SECTOR</label>
+        <select id="filterSector">
+          <option value="">Todos</option>
+        </select>
+      </div>
+    </div>
+    <div class="sort-group">
+      <label>ORDENAR POR</label>
+      <select id="sortBy">
+        <option value="score_global">Score Global</option>
+        <option value="score_valoracion">Score Valoración</option>
+        <option value="score_calidad">Score Calidad</option>
+        <option value="ticker">Ticker A-Z</option>
+        <option value="upside">Mayor Upside DCF</option>
+      </select>
+      <button id="sortDir" class="sort-dir-btn" title="Cambiar dirección">↓</button>
+    </div>
+    <div class="search-group">
+      <input type="text" id="searchInput" placeholder="Buscar ticker o nombre..." autocomplete="off">
+    </div>
+  </div>
+
+  <!-- GRID DE CARDS -->
+  <main id="screenerGrid" class="screener-grid">
+    <div class="loading-state">
+      <div class="loading-spinner"></div>
+      <p>Cargando datos del screener...</p>
+    </div>
+  </main>
+
+  <!-- MODAL DE DETALLE -->
+  <div id="detailModal" class="modal-overlay hidden">
+    <div class="modal-container">
+      <button class="modal-close" id="modalClose">✕</button>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <p>
+      Datos vía <strong>yfinance</strong> · Actualización diaria 06:00 UTC ·
+      <a href="https://github.com/facubelini/stock-screener" target="_blank" rel="noopener">Ver en GitHub</a>
+    </p>
+    <p class="footer-disclaimer">
+      No es asesoramiento financiero. Solo para uso educativo y análisis cuantitativo.
+    </p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "ultima_actualizacion": null,
+  "total_tickers": 0,
+  "exitosos": 0,
+  "con_errores": [],
+  "acciones": [],
+  "_placeholder": true,
+  "_message": "Ejecutar el workflow de GitHub Actions para generar los datos reales"
+}

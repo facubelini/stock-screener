@@ -1,0 +1,60 @@
+name: Actualizar datos del screener
+
+on:
+  schedule:
+    # Todos los días a las 06:00 UTC
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+  push:
+    paths:
+      - 'tickers.xlsx'
+      - 'scripts/**'
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Configurar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Ejecutar análisis fundamental
+        run: python scripts/analyze.py
+        env:
+          PYTHONUNBUFFERED: '1'
+
+      - name: Verificar que data.json fue generado
+        run: |
+          if [ -f docs/data.json ]; then
+            echo "✓ docs/data.json generado correctamente"
+            echo "  Tamaño: $(wc -c < docs/data.json) bytes"
+            echo "  Fecha: $(date -u)"
+          else
+            echo "✗ ERROR: docs/data.json no fue generado"
+            exit 1
+          fi
+
+      - name: Commit y push de data.json
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "bot: actualizar data.json [$(date -u +'%Y-%m-%d %H:%M UTC')]"
+          file_pattern: 'docs/data.json'
+          commit_user_name: 'stock-screener-bot'
+          commit_user_email: 'bot@users.noreply.github.com'
+          commit_author: 'stock-screener-bot <bot@users.noreply.github.com>'
+          skip_dirty_check: false
