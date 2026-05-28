@@ -1,16 +1,576 @@
 // app.js — Stock Screener Frontend
-// Carga docs/data.json y renderiza el dashboard de análisis fundamental
-
 'use strict';
 
-// ─── Estado global ────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════
+// RATIO REFERENCE VALUES
+// Umbrales de referencia para interpretar cada ratio fundamental.
+// ═══════════════════════════════════════════════════════════════════════
+const RATIO_REFS = {
+  pe: {
+    label: 'P/E Ratio',
+    desc: 'Precio sobre Ganancias por acción. Cuánto se paga por cada $1 de ganancia.',
+    lowerIsBetter: true,
+    thresholds: [
+      { max: 10,       label: 'Muy barato',  cls: 'ref-great' },
+      { max: 15,       label: 'Barato',       cls: 'ref-good' },
+      { max: 25,       label: 'Razonable',    cls: 'ref-neutral' },
+      { max: 35,       label: 'Elevado',      cls: 'ref-warn' },
+      { max: Infinity, label: 'Muy caro',     cls: 'ref-bad' },
+    ],
+    note: 'S&P 500 histórico: ~16-18x. Varía mucho por sector. Tech puede justificar 30-40x con alto crecimiento.',
+  },
+  forward_pe: {
+    label: 'Forward P/E',
+    desc: 'P/E basado en ganancias estimadas para los próximos 12 meses.',
+    lowerIsBetter: true,
+    thresholds: [
+      { max: 12,       label: 'Muy barato',  cls: 'ref-great' },
+      { max: 18,       label: 'Razonable',    cls: 'ref-neutral' },
+      { max: 28,       label: 'Elevado',      cls: 'ref-warn' },
+      { max: Infinity, label: 'Muy caro',     cls: 'ref-bad' },
+    ],
+    note: 'Mejor predictor que el P/E trailing. Si Forward P/E < P/E, el mercado espera crecimiento.',
+  },
+  peg: {
+    label: 'PEG Ratio',
+    desc: 'P/E dividido por tasa de crecimiento de ganancias. Ajusta la valoración por crecimiento.',
+    lowerIsBetter: true,
+    thresholds: [
+      { max: 0.75,     label: 'Infravalorada', cls: 'ref-great' },
+      { max: 1.0,      label: 'Justa',          cls: 'ref-good' },
+      { max: 1.5,      label: 'Razonable',      cls: 'ref-neutral' },
+      { max: 2.0,      label: 'Elevada',         cls: 'ref-warn' },
+      { max: Infinity, label: 'Cara',            cls: 'ref-bad' },
+    ],
+    note: 'PEG < 1: el mercado subestima el crecimiento futuro. Popularizado por Peter Lynch.',
+  },
+  pb: {
+    label: 'P/B (Price-to-Book)',
+    desc: 'Precio sobre Valor Libro. Cuánto se paga por encima de los activos netos.',
+    lowerIsBetter: true,
+    thresholds: [
+      { max: 1.0,      label: 'Muy barato',  cls: 'ref-great' },
+      { max: 2.0,      label: 'Barato',       cls: 'ref-good' },
+      { max: 4.0,      label: 'Razonable',    cls: 'ref-neutral' },
+      { max: 7.0,      label: 'Elevado',      cls: 'ref-warn' },
+      { max: Infinity, label: 'Muy caro',     cls: 'ref-bad' },
+    ],
+    note: 'Bancos: < 1.5 es aceptable. Tech puede justificar P/B alto por activos intangibles (marcas, IP).',
+  },
+  ps: {
+    label: 'P/S (Price-to-Sales)',
+    desc: 'Precio sobre Ventas. Útil para empresas sin ganancias aún.',
+    lowerIsBetter: true,
+    thresholds: [
+      { max: 1.0,      label: 'Muy barato',  cls: 'ref-great' },
+      { max: 2.5,      label: 'Razonable',    cls: 'ref-neutral' },
+      { max: 5.0,      label: 'Elevado',      cls: 'ref-warn' },
+      { max: Infinity, label: 'Muy caro',     cls: 'ref-bad' },
+    ],
+    note: 'SaaS en crecimiento puede justificar P/S > 10x. Para industriales o retail, > 2x es caro.',
+  },
+  ev_ebitda: {
+    label: 'EV/EBITDA',
+    desc: 'Valor Empresa sobre EBITDA. Neutral a estructura de capital e impuestos.',
+    lowerIsBetter: true,
+    thresholds: [
+      { max: 6,        label: 'Muy barato',  cls: 'ref-great' },
+      { max: 10,       label: 'Barato',       cls: 'ref-good' },
+      { max: 15,       label: 'Razonable',    cls: 'ref-neutral' },
+      { max: 25,       label: 'Elevado',      cls: 'ref-warn' },
+      { max: Infinity, label: 'Muy caro',     cls: 'ref-bad' },
+    ],
+    note: 'Mejor que P/E para comparar empresas con diferente deuda o régimen fiscal. M&A suele usar este múltiplo.',
+  },
+  dividend_yield: {
+    label: 'Dividend Yield',
+    desc: 'Dividendo anual / Precio de mercado. Rendimiento por dividendo.',
+    lowerIsBetter: false,
+    thresholds: [
+      { max: 0,        label: 'Sin dividendo', cls: 'ref-neutral' },
+      { max: 1.5,      label: 'Bajo',           cls: 'ref-warn' },
+      { max: 3.0,      label: 'Moderado',        cls: 'ref-neutral' },
+      { max: 5.0,      label: 'Atractivo',       cls: 'ref-good' },
+      { max: 8.0,      label: 'Alto',            cls: 'ref-great' },
+      { max: Infinity, label: 'Posible trampa',  cls: 'ref-warn' },
+    ],
+    note: 'Yield > 8% puede indicar que el mercado descuenta un recorte de dividendo. Verificar payout ratio.',
+  },
+  payout_ratio: {
+    label: 'Payout Ratio',
+    desc: '% de ganancias netas distribuidas como dividendo.',
+    lowerIsBetter: true,
+    thresholds: [
+      { max: 30,       label: 'Muy sostenible', cls: 'ref-great' },
+      { max: 55,       label: 'Sostenible',      cls: 'ref-good' },
+      { max: 75,       label: 'Moderado',         cls: 'ref-neutral' },
+      { max: 90,       label: 'Elevado',          cls: 'ref-warn' },
+      { max: Infinity, label: 'Insostenible',     cls: 'ref-bad' },
+    ],
+    note: 'REITs y utilities con > 70% es normal por su estructura. En otros sectores sugiere poca reinversión.',
+  },
+  roe: {
+    label: 'ROE — Return on Equity',
+    desc: 'Ganancia neta / Patrimonio neto. Rentabilidad sobre capital propio.',
+    lowerIsBetter: false,
+    thresholds: [
+      { max: 5,        label: 'Bajo',        cls: 'ref-bad' },
+      { max: 10,       label: 'Aceptable',    cls: 'ref-warn' },
+      { max: 20,       label: 'Bueno',        cls: 'ref-neutral' },
+      { max: 30,       label: 'Muy bueno',    cls: 'ref-good' },
+      { max: Infinity, label: 'Excelente',    cls: 'ref-great' },
+    ],
+    note: 'Buffett busca ROE > 15% sostenido por años. ROE muy alto con mucha deuda puede ser engañoso.',
+  },
+  roa: {
+    label: 'ROA — Return on Assets',
+    desc: 'Ganancia neta / Activos totales. Eficiencia en uso de todos los recursos.',
+    lowerIsBetter: false,
+    thresholds: [
+      { max: 2,        label: 'Bajo',        cls: 'ref-bad' },
+      { max: 5,        label: 'Aceptable',    cls: 'ref-warn' },
+      { max: 10,       label: 'Bueno',        cls: 'ref-neutral' },
+      { max: 15,       label: 'Muy bueno',    cls: 'ref-good' },
+      { max: Infinity, label: 'Excelente',    cls: 'ref-great' },
+    ],
+    note: 'Bancos: ROA > 1% es bueno (usan mucho apalancamiento). Industriales: buscar > 5%.',
+  },
+  roic: {
+    label: 'ROIC — Return on Invested Capital',
+    desc: 'NOPAT / Capital invertido. El mejor indicador de rentabilidad real del negocio.',
+    lowerIsBetter: false,
+    thresholds: [
+      { max: 5,        label: 'Bajo',        cls: 'ref-bad' },
+      { max: 8,        label: 'Aceptable',    cls: 'ref-warn' },
+      { max: 15,       label: 'Bueno',        cls: 'ref-neutral' },
+      { max: 25,       label: 'Muy bueno',    cls: 'ref-good' },
+      { max: Infinity, label: 'Excelente',    cls: 'ref-great' },
+    ],
+    note: 'ROIC > WACC crea valor para el accionista. Es el ratio favorito de Buffett y Munger para evaluar calidad.',
+  },
+  gross_margin: {
+    label: 'Margen Bruto',
+    desc: '(Ventas − COGS) / Ventas. Rentabilidad antes de gastos operativos.',
+    lowerIsBetter: false,
+    thresholds: [
+      { max: 15,       label: 'Muy bajo',    cls: 'ref-bad' },
+      { max: 30,       label: 'Bajo',        cls: 'ref-warn' },
+      { max: 50,       label: 'Moderado',    cls: 'ref-neutral' },
+      { max: 70,       label: 'Alto',        cls: 'ref-good' },
+      { max: Infinity, label: 'Muy alto',    cls: 'ref-great' },
+    ],
+    note: 'Software/pharma: > 70% normal. Retail/commodities: < 30% normal. Siempre comparar dentro del sector.',
+  },
+  operating_margin: {
+    label: 'Margen Operativo',
+    desc: 'EBIT / Ventas. Eficiencia antes de intereses e impuestos.',
+    lowerIsBetter: false,
+    thresholds: [
+      { max: 3,        label: 'Muy bajo',    cls: 'ref-bad' },
+      { max: 8,        label: 'Bajo',        cls: 'ref-warn' },
+      { max: 15,       label: 'Bueno',       cls: 'ref-neutral' },
+      { max: 25,       label: 'Muy bueno',   cls: 'ref-good' },
+      { max: Infinity, label: 'Excelente',   cls: 'ref-great' },
+    ],
+    note: 'Margen operativo creciente trimestre a trimestre indica mejora de eficiencia. Comparar YoY.',
+  },
+  net_margin: {
+    label: 'Margen Neto',
+    desc: 'Ganancia Neta / Ventas. La línea final después de todo.',
+    lowerIsBetter: false,
+    thresholds: [
+      { max: 2,        label: 'Muy bajo',    cls: 'ref-bad' },
+      { max: 6,        label: 'Bajo',        cls: 'ref-warn' },
+      { max: 12,       label: 'Bueno',       cls: 'ref-neutral' },
+      { max: 22,       label: 'Muy bueno',   cls: 'ref-good' },
+      { max: Infinity, label: 'Excelente',   cls: 'ref-great' },
+    ],
+    note: 'Varía enormemente: bancos 15-25%, retail 3-5%, software 20-35%, oil & gas 5-10%.',
+  },
+  debt_equity: {
+    label: 'Debt/Equity',
+    desc: 'Deuda total / Patrimonio neto. Nivel de apalancamiento financiero. (yfinance lo da en %)',
+    lowerIsBetter: true,
+    thresholds: [
+      { max: 30,       label: 'Muy bajo',    cls: 'ref-great' },
+      { max: 80,       label: 'Moderado',    cls: 'ref-good' },
+      { max: 150,      label: 'Elevado',     cls: 'ref-neutral' },
+      { max: 300,      label: 'Alto',        cls: 'ref-warn' },
+      { max: Infinity, label: 'Muy alto',    cls: 'ref-bad' },
+    ],
+    note: 'yfinance reporta D/E en %. Utilities y bancos toleran más deuda por naturaleza del negocio.',
+  },
+  net_debt_ebitda: {
+    label: 'Deuda Neta / EBITDA',
+    desc: 'Años que tardaría en pagar la deuda neta usando todo el EBITDA.',
+    lowerIsBetter: true,
+    thresholds: [
+      { max: 0,        label: 'Caja neta',   cls: 'ref-great' },
+      { max: 1.5,      label: 'Muy bajo',    cls: 'ref-good' },
+      { max: 3.0,      label: 'Moderado',    cls: 'ref-neutral' },
+      { max: 5.0,      label: 'Alto',        cls: 'ref-warn' },
+      { max: Infinity, label: 'Peligroso',   cls: 'ref-bad' },
+    ],
+    note: 'S&P 500 promedio ~2x. Agencias consideran > 4x como speculative-grade. < 0 = más caja que deuda.',
+  },
+  current_ratio: {
+    label: 'Current Ratio',
+    desc: 'Activos corrientes / Pasivos corrientes. Capacidad de pagar deuda a corto plazo.',
+    lowerIsBetter: false,
+    thresholds: [
+      { max: 0.8,      label: 'Riesgo',      cls: 'ref-bad' },
+      { max: 1.0,      label: 'Ajustado',    cls: 'ref-warn' },
+      { max: 1.5,      label: 'Aceptable',   cls: 'ref-neutral' },
+      { max: 2.5,      label: 'Sólido',      cls: 'ref-good' },
+      { max: Infinity, label: 'Muy sólido',  cls: 'ref-great' },
+    ],
+    note: 'Muy alto (> 4) puede indicar ineficiencia de capital. Ideal: 1.5-2.5. Varía por industria.',
+  },
+  quick_ratio: {
+    label: 'Quick Ratio',
+    desc: '(Activos corrientes − Inventario) / Pasivos corrientes. Más conservador que Current Ratio.',
+    lowerIsBetter: false,
+    thresholds: [
+      { max: 0.5,      label: 'Riesgo',      cls: 'ref-bad' },
+      { max: 1.0,      label: 'Límite',      cls: 'ref-warn' },
+      { max: 1.5,      label: 'Bueno',       cls: 'ref-good' },
+      { max: Infinity, label: 'Excelente',   cls: 'ref-great' },
+    ],
+    note: 'Excluye inventario (difícil de liquidar rápido). Para retailers con bajo inventario, Quick ≈ Current.',
+  },
+  interest_coverage: {
+    label: 'Interest Coverage',
+    desc: 'EBIT / Gastos de interés. Cuántas veces se cubren los intereses con ganancias operativas.',
+    lowerIsBetter: false,
+    thresholds: [
+      { max: 1.5,      label: 'Peligroso',   cls: 'ref-bad' },
+      { max: 3.0,      label: 'Bajo',        cls: 'ref-warn' },
+      { max: 5.0,      label: 'Aceptable',   cls: 'ref-neutral' },
+      { max: 10.0,     label: 'Sólido',      cls: 'ref-good' },
+      { max: Infinity, label: 'Muy sólido',  cls: 'ref-great' },
+    ],
+    note: '< 1.5 = zona de peligro de default. Buffett busca > 5x. Sin deuda → N/D (signo muy positivo).',
+  },
+  revenue_growth: {
+    label: 'Revenue Growth (YoY)',
+    desc: 'Crecimiento de ingresos respecto al mismo período del año anterior.',
+    lowerIsBetter: false,
+    thresholds: [
+      { max: 0,        label: 'Negativo',    cls: 'ref-bad' },
+      { max: 3,        label: 'Estancado',   cls: 'ref-warn' },
+      { max: 8,        label: 'Moderado',    cls: 'ref-neutral' },
+      { max: 18,       label: 'Bueno',       cls: 'ref-good' },
+      { max: Infinity, label: 'Alto',        cls: 'ref-great' },
+    ],
+    note: 'S&P 500 nominal histórico: ~5-7%. Tech top: 15-30%. Comparar vs. sector y guidance.',
+  },
+  earnings_growth: {
+    label: 'Earnings Growth (YoY)',
+    desc: 'Crecimiento de ganancias por acción respecto al año anterior.',
+    lowerIsBetter: false,
+    thresholds: [
+      { max: 0,        label: 'Negativo',    cls: 'ref-bad' },
+      { max: 5,        label: 'Lento',       cls: 'ref-warn' },
+      { max: 12,       label: 'Moderado',    cls: 'ref-neutral' },
+      { max: 25,       label: 'Bueno',       cls: 'ref-good' },
+      { max: Infinity, label: 'Alto',        cls: 'ref-great' },
+    ],
+    note: 'Buffett busca EPS growth > 10% sostenido por años. Un trimestre no define el trend.',
+  },
+  fcf_yield: {
+    label: 'FCF Yield',
+    desc: 'Free Cash Flow / Market Cap. Rendimiento real del negocio para el accionista.',
+    lowerIsBetter: false,
+    thresholds: [
+      { max: 0,        label: 'Negativo',    cls: 'ref-bad' },
+      { max: 2,        label: 'Bajo',        cls: 'ref-warn' },
+      { max: 4,        label: 'Razonable',   cls: 'ref-neutral' },
+      { max: 7,        label: 'Atractivo',   cls: 'ref-good' },
+      { max: Infinity, label: 'Muy atractivo', cls: 'ref-great' },
+    ],
+    note: 'FCF Yield > 5% se considera atractivo. Es la inversa del P/FCF. Más real que el P/E contable.',
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// CONSTANTES
+// ═══════════════════════════════════════════════════════════════════════
+const SETTINGS_KEY = 'ss_cfg';
+const REPO_OWNER   = 'facubelini';
+const REPO_NAME    = 'stock-screener';
+
+// ═══════════════════════════════════════════════════════════════════════
+// ESTADO GLOBAL
+// ═══════════════════════════════════════════════════════════════════════
 const state = {
   data: null,
   filtered: [],
   sortDir: 'desc',
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════════════════════════════════
+const Settings = {
+  get()        { try { return JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}'); } catch { return {}; } },
+  save(s)      { localStorage.setItem(SETTINGS_KEY, JSON.stringify(s)); },
+  getToken()   { return this.get().token || ''; },
+  setToken(t)  { const s = this.get(); s.token = t; this.save(s); },
+  clearToken() { const s = this.get(); delete s.token; this.save(s); },
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// TOOLTIP SYSTEM
+// ═══════════════════════════════════════════════════════════════════════
+const tipRegistry = new Map();
+let tipIdCounter = 0;
+
+function clearTipRegistry() { tipRegistry.clear(); tipIdCounter = 0; }
+
+function registerTip(html) {
+  const id = ++tipIdCounter;
+  tipRegistry.set(id, html);
+  return id;
+}
+
+const Tooltip = {
+  el: null,
+  init() {
+    this.el = document.getElementById('globalTooltip');
+    document.addEventListener('mouseover', e => {
+      const t = e.target.closest('[data-tip-id]');
+      if (!t) return;
+      const html = tipRegistry.get(parseInt(t.dataset.tipId));
+      if (!html) return;
+      this.el.innerHTML = html;
+      this.el.classList.add('tip-visible');
+    });
+    document.addEventListener('mousemove', e => {
+      if (!this.el.classList.contains('tip-visible')) return;
+      const vw = window.innerWidth, vh = window.innerHeight;
+      const w = this.el.offsetWidth, h = this.el.offsetHeight;
+      let x = e.clientX + 14, y = e.clientY + 14;
+      if (x + w > vw - 8) x = e.clientX - w - 14;
+      if (y + h > vh - 8) y = e.clientY - h - 14;
+      this.el.style.left = x + 'px';
+      this.el.style.top  = y + 'px';
+    });
+    document.addEventListener('mouseout', e => {
+      if (e.target.closest('[data-tip-id]')) this.el.classList.remove('tip-visible');
+    });
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+// RATIO REFERENCE HELPERS
+// ═══════════════════════════════════════════════════════════════════════
+function getActiveThreshold(key, rawValue) {
+  const ref = RATIO_REFS[key];
+  if (!ref) return null;
+  return ref.thresholds.find(t => rawValue <= t.max) ?? ref.thresholds.at(-1);
+}
+
+function buildTooltipHtml(key, rawValue, displayValue) {
+  const ref = RATIO_REFS[key];
+  if (!ref) return '';
+  const active = getActiveThreshold(key, rawValue);
+
+  let rows = '';
+  let prev = null;
+  for (const t of ref.thresholds) {
+    const isCurrent = t === active;
+    const isLast = t.max === Infinity;
+    let range;
+    if (prev === null) {
+      range = `&lt;&nbsp;${t.max}`;
+    } else if (isLast) {
+      range = `&gt;&nbsp;${prev}`;
+    } else {
+      range = `${prev}&nbsp;–&nbsp;${t.max}`;
+    }
+    const arrow = isCurrent ? '&nbsp;◄' : '';
+    rows += `<div class="tip-row ${t.cls}${isCurrent ? ' tip-active' : ''}">${range}: ${t.label}${arrow}</div>`;
+    if (!isLast) prev = t.max;
+  }
+
+  const dirLabel = ref.lowerIsBetter ? '↓ menor es mejor' : '↑ mayor es mejor';
+
+  return `<div class="tip-title">${ref.label} <span style="font-size:.55rem;color:var(--text-muted);font-weight:400">${dirLabel}</span></div>
+    <div class="tip-desc">${ref.desc}</div>
+    <div class="tip-current-val">Valor: <strong>${displayValue}</strong>&nbsp;→&nbsp;<span class="${active?.cls ?? ''}">${active?.label ?? '—'}</span></div>
+    <div class="tip-separator"></div>
+    <div class="tip-thresholds">${rows}</div>
+    ${ref.note ? `<div class="tip-note">${ref.note}</div>` : ''}`;
+}
+
+function renderRefDot(key, rawValue, displayValue) {
+  if (rawValue === null || rawValue === undefined) return '';
+  const active = getActiveThreshold(key, rawValue);
+  if (!active) return '';
+  const tipHtml = buildTooltipHtml(key, rawValue, displayValue);
+  const id = registerTip(tipHtml);
+  return `<span class="ref-dot ${active.cls}" data-tip-id="${id}"></span>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// GITHUB UPLOADER
+// ═══════════════════════════════════════════════════════════════════════
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function githubFetch(path, token, opts = {}) {
+  return fetch(`https://api.github.com${path}`, {
+    ...opts,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+      ...(opts.headers || {}),
+    },
+  });
+}
+
+function showStatus(msg, type = 'loading') {
+  const bar = document.getElementById('statusBar');
+  if (!bar) return;
+  bar.textContent = msg;
+  bar.className = `status-bar status-${type}`;
+  bar.style.display = 'block';
+}
+
+function clearStatus() {
+  const bar = document.getElementById('statusBar');
+  if (bar) bar.style.display = 'none';
+}
+
+async function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => resolve(e.target.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function countTickersInFile(file) {
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+        const ws = wb.Sheets['Tickers'] ?? wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws);
+        resolve(rows.filter(r => r.Ticker || r.ticker).length);
+      } catch { resolve(0); }
+    };
+    reader.onerror = () => resolve(0);
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+async function uploadExcel(file) {
+  const token = Settings.getToken();
+  if (!token) {
+    showStatus('⚙  Configurá tu GitHub Token antes de subir. Hacé click en ⚙', 'error');
+    document.getElementById('settingsModal').classList.remove('hidden');
+    return;
+  }
+
+  try {
+    showStatus('📖 Leyendo Excel...', 'loading');
+    const [b64, count] = await Promise.all([fileToBase64(file), countTickersInFile(file)]);
+
+    if (count === 0) {
+      showStatus('✗ No se encontraron tickers en el Excel. Verificá que la hoja se llame "Tickers".', 'error');
+      return;
+    }
+
+    showStatus(`✓ ${count} tickers detectados. Subiendo a GitHub...`, 'loading');
+
+    // Obtener SHA del archivo actual (requerido para actualizar)
+    let sha;
+    const shaResp = await githubFetch(`/repos/${REPO_OWNER}/${REPO_NAME}/contents/tickers.xlsx`, token);
+    if (shaResp.ok) {
+      const cur = await shaResp.json();
+      sha = cur.sha;
+    }
+
+    // Subir archivo
+    const body = {
+      message: `update: tickers.xlsx (${count} tickers) — subido vía web UI`,
+      content: b64,
+    };
+    if (sha) body.sha = sha;
+
+    const upResp = await githubFetch(
+      `/repos/${REPO_OWNER}/${REPO_NAME}/contents/tickers.xlsx`, token,
+      { method: 'PUT', body: JSON.stringify(body) }
+    );
+
+    if (!upResp.ok) {
+      const err = await upResp.json().catch(() => ({}));
+      throw new Error(err.message || `HTTP ${upResp.status}`);
+    }
+
+    showStatus('✓ Archivo subido. Esperando que GitHub Actions analice los tickers...', 'loading');
+    await pollWorkflow(token, count);
+
+  } catch (err) {
+    showStatus(`✗ Error: ${err.message}`, 'error');
+  }
+}
+
+async function pollWorkflow(token, count) {
+  // Esperar a que GitHub cree el run del workflow
+  await sleep(5000);
+
+  const runsResp = await githubFetch(
+    `/repos/${REPO_OWNER}/${REPO_NAME}/actions/runs?per_page=1&event=push`, token
+  );
+  if (!runsResp.ok) {
+    showStatus('⚠ No se pudo verificar el workflow. Revisá GitHub Actions manualmente.', 'warning');
+    return;
+  }
+
+  const runs = await runsResp.json();
+  if (!runs.workflow_runs?.length) {
+    showStatus('⚠ Workflow no encontrado. Puede demorar unos segundos más en aparecer.', 'warning');
+    return;
+  }
+
+  const runId = runs.workflow_runs[0].id;
+  let attempts = 0;
+  const MAX = 40; // hasta ~3.5 minutos
+
+  while (attempts < MAX) {
+    await sleep(5000);
+    const runResp = await githubFetch(`/repos/${REPO_OWNER}/${REPO_NAME}/actions/runs/${runId}`, token);
+    if (!runResp.ok) { attempts++; continue; }
+
+    const run = await runResp.json();
+    if (run.status === 'completed') {
+      if (run.conclusion === 'success') {
+        showStatus(`✓ Análisis completado — ${count} tickers. Actualizando dashboard...`, 'success');
+        await sleep(2000);
+        await cargarDatos();
+        await sleep(1500);
+        clearStatus();
+      } else {
+        showStatus(`✗ El workflow terminó con error (${run.conclusion}). Revisá GitHub Actions.`, 'error');
+      }
+      return;
+    }
+
+    const mins = Math.ceil(((MAX - attempts) * 5) / 60);
+    showStatus(`⏳ Analizando ${count} tickers... (~${mins} min restantes)`, 'loading');
+    attempts++;
+  }
+
+  showStatus('⚠ Timeout esperando el workflow. Verificá el estado en GitHub Actions.', 'warning');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════════════
 function fmt(val, suffix = '', decimals = 2) {
   if (val === null || val === undefined) return '<span class="text-nd">N/D</span>';
   const n = parseFloat(val);
@@ -18,11 +578,18 @@ function fmt(val, suffix = '', decimals = 2) {
   return `${n.toFixed(decimals)}${suffix}`;
 }
 
+function fmtRaw(val, decimals = 2) {
+  if (val === null || val === undefined) return null;
+  const n = parseFloat(val);
+  return isNaN(n) ? null : parseFloat(n.toFixed(decimals));
+}
+
 function fmtCurrency(val, currency = 'USD') {
   if (val === null || val === undefined) return 'N/D';
   const n = parseFloat(val);
   if (isNaN(n)) return 'N/D';
-  return `${currency === 'USD' ? '$' : ''}${n.toFixed(2)}`;
+  const sym = currency === 'USD' ? '$' : '';
+  return `${sym}${n.toFixed(2)}`;
 }
 
 function fmtLarge(val) {
@@ -30,300 +597,288 @@ function fmtLarge(val) {
   const n = parseFloat(val);
   if (isNaN(n)) return 'N/D';
   if (Math.abs(n) >= 1e12) return `$${(n / 1e12).toFixed(2)}T`;
-  if (Math.abs(n) >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
-  if (Math.abs(n) >= 1e6) return `$${(n / 1e6).toFixed(2)}M`;
+  if (Math.abs(n) >= 1e9)  return `$${(n / 1e9).toFixed(2)}B`;
+  if (Math.abs(n) >= 1e6)  return `$${(n / 1e6).toFixed(2)}M`;
   return `$${n.toFixed(0)}`;
 }
 
-function fmtDate(isoStr) {
-  if (!isoStr) return '—';
+function fmtDate(iso) {
+  if (!iso) return '—';
   try {
-    const d = new Date(isoStr);
-    return d.toLocaleString('es-AR', {
-      timeZone: 'UTC',
-      year: 'numeric', month: '2-digit', day: '2-digit',
+    return new Date(iso).toLocaleString('es-AR', {
+      timeZone: 'UTC', year: 'numeric', month: '2-digit', day: '2-digit',
       hour: '2-digit', minute: '2-digit',
     }) + ' UTC';
-  } catch { return isoStr; }
+  } catch { return iso; }
 }
 
-function scoreColor(score) {
-  if (score === null || score === undefined) return 'score-yellow';
-  if (score >= 70) return 'score-green';
-  if (score >= 40) return 'score-yellow';
-  return 'score-red';
+function scoreColor(s) {
+  if (s === null || s === undefined) return 'score-yellow';
+  return s >= 70 ? 'score-green' : s >= 40 ? 'score-yellow' : 'score-red';
 }
 
-function senalClass(senal) {
-  if (!senal) return 'senal-hold';
-  if (senal.includes('COMPRA') && !senal.includes('MODERADA')) return 'senal-buy';
-  if (senal.includes('MODERADA')) return 'senal-mod';
-  if (senal.includes('MANTENER')) return 'senal-hold';
+function senalClass(s) {
+  if (!s) return 'senal-hold';
+  if (s.includes('COMPRA') && !s.includes('MODERADA')) return 'senal-buy';
+  if (s.includes('MODERADA')) return 'senal-mod';
+  if (s.includes('MANTENER')) return 'senal-hold';
   return 'senal-avoid';
 }
 
-function upside(acc) {
-  const dcf = acc.valuacion?.dcf?.upside_pct;
-  const gr = acc.valuacion?.graham?.upside_pct;
-  if (dcf !== null && dcf !== undefined) return dcf;
-  if (gr !== null && gr !== undefined) return gr;
+function bestUpside(acc) {
+  const d = acc.valuacion?.dcf?.upside_pct;
+  const g = acc.valuacion?.graham?.upside_pct;
+  if (d !== null && d !== undefined) return d;
+  if (g !== null && g !== undefined) return g;
   return null;
 }
 
-function scoreRingPath(score) {
-  const r = 27;
-  const circ = 2 * Math.PI * r;
-  const pct = Math.max(0, Math.min(100, score || 0)) / 100;
-  const dashoffset = circ * (1 - pct);
-  return { circ, dashoffset, r };
+function scoreRing(score) {
+  const r = 27, circ = 2 * Math.PI * r;
+  const pct = Math.max(0, Math.min(100, score ?? 0)) / 100;
+  return { circ, dashoffset: circ * (1 - pct) };
 }
 
-// ─── Render score circle ──────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════
+// RENDER: SCORE CIRCLE
+// ═══════════════════════════════════════════════════════════════════════
 function renderScoreCircle(score, size = 68) {
-  const r = 27;
-  const { circ, dashoffset } = scoreRingPath(score);
+  const r = 27, { circ, dashoffset } = scoreRing(score);
   const cls = scoreColor(score);
-  const displayScore = score !== null && score !== undefined ? Math.round(score) : '—';
-
-  return `
-    <div class="score-circle">
-      <svg class="score-ring" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
-        <circle class="score-ring-bg" cx="${size/2}" cy="${size/2}" r="${r}" />
-        <circle class="score-ring-fill ${cls}"
-          cx="${size/2}" cy="${size/2}" r="${r}"
-          stroke-dasharray="${circ.toFixed(2)}"
-          stroke-dashoffset="${dashoffset.toFixed(2)}" />
-      </svg>
-      <div class="score-text">
-        <div class="score-value ${cls}">${displayScore}</div>
-        <div class="score-label">SCORE</div>
-      </div>
-    </div>`;
-}
-
-// ─── Render sub-score bars ────────────────────────────────────────────────────
-function renderSubScores(scoring) {
-  if (!scoring) return '';
-  const items = [
-    { label: 'VALOR.', key: 'score_valoracion' },
-    { label: 'CALIDAD', key: 'score_calidad' },
-    { label: 'SALUD', key: 'score_salud' },
-  ];
-
-  return `<div class="card-sub-scores">
-    ${items.map(({ label, key }) => {
-      const val = scoring[key];
-      const cls = scoreColor(val);
-      const pct = val !== null && val !== undefined ? Math.round(val) : 0;
-      return `
-        <div class="sub-score-item">
-          <div class="sub-score-label">${label}</div>
-          <div class="sub-score-bar-wrap">
-            <div class="sub-score-bar-bg">
-              <div class="sub-score-bar-fill ${cls}" style="width:${pct}%; background:currentColor"></div>
-            </div>
-            <span class="sub-score-num ${cls}">${val !== null && val !== undefined ? Math.round(val) : '—'}</span>
-          </div>
-        </div>`;
-    }).join('')}
+  const disp = score !== null && score !== undefined ? Math.round(score) : '—';
+  return `<div class="score-circle">
+    <svg class="score-ring" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">
+      <circle class="score-ring-bg" cx="${size/2}" cy="${size/2}" r="${r}"/>
+      <circle class="score-ring-fill ${cls}" cx="${size/2}" cy="${size/2}" r="${r}"
+        stroke-dasharray="${circ.toFixed(2)}" stroke-dashoffset="${dashoffset.toFixed(2)}"/>
+    </svg>
+    <div class="score-text">
+      <div class="score-value ${cls}">${disp}</div>
+      <div class="score-label">SCORE</div>
+    </div>
   </div>`;
 }
 
-// ─── Render card principal ────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════
+// RENDER: SUB-SCORE BARS
+// ═══════════════════════════════════════════════════════════════════════
+function renderSubScores(sc) {
+  if (!sc) return '';
+  const items = [
+    { label: 'VALOR.', key: 'score_valoracion' },
+    { label: 'CALIDAD', key: 'score_calidad' },
+    { label: 'SALUD',  key: 'score_salud' },
+  ];
+  return `<div class="card-sub-scores">${items.map(({ label, key }) => {
+    const v = sc[key];
+    const cls = scoreColor(v);
+    const pct = v !== null && v !== undefined ? Math.round(v) : 0;
+    return `<div class="sub-score-item">
+      <div class="sub-score-label">${label}</div>
+      <div class="sub-score-bar-wrap">
+        <div class="sub-score-bar-bg">
+          <div class="sub-score-bar-fill ${cls}" style="width:${pct}%;background:var(--${cls === 'score-green' ? 'score-green' : cls === 'score-yellow' ? 'score-yellow' : 'score-red'})"></div>
+        </div>
+        <span class="sub-score-num ${cls}">${v !== null && v !== undefined ? Math.round(v) : '—'}</span>
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// RENDER: RATIO TABLE ROW (con ref dot)
+// ═══════════════════════════════════════════════════════════════════════
+function ratioRow(nameA, keyA, rawA, dispA, nameB, keyB, rawB, dispB) {
+  const dotA = rawA !== null ? renderRefDot(keyA, rawA, dispA) : '';
+  const dotB = rawB !== null ? renderRefDot(keyB, rawB, dispB) : '';
+  return `<tr>
+    <td class="ratio-name">${nameA}</td>
+    <td class="ratio-value-cell">${dispA}${dotA}</td>
+    <td class="ratio-name">${nameB}</td>
+    <td class="ratio-value-cell">${dispB}${dotB}</td>
+  </tr>`;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// RENDER: CARD
+// ═══════════════════════════════════════════════════════════════════════
 function renderCard(acc) {
   if (acc.error && !acc.ratios?.valoracion) {
-    return `
-      <div class="stock-card has-error">
-        <div class="card-header">
-          <div class="card-identity">
-            <div class="card-ticker">${acc.ticker}</div>
-            <div class="card-name">${acc.nombre || '—'}</div>
-          </div>
-          <div class="card-badges">
-            ${acc.categoria ? `<span class="badge badge-categoria">${acc.categoria}</span>` : ''}
-          </div>
-        </div>
-        <div class="error-card-body">
-          <div>Datos no disponibles</div>
-          <div class="error-msg">${acc.error}</div>
-        </div>
-      </div>`;
+    return `<div class="stock-card has-error">
+      <div class="card-header">
+        <div><div class="card-ticker">${acc.ticker}</div><div class="card-name">${acc.nombre || '—'}</div></div>
+        <div class="card-badges">${acc.categoria ? `<span class="badge badge-categoria">${acc.categoria}</span>` : ''}</div>
+      </div>
+      <div class="error-card-body">Datos no disponibles<div class="error-msg">${acc.error}</div></div>
+    </div>`;
   }
 
-  const v = acc.ratios?.valoracion || {};
-  const r = acc.ratios?.rentabilidad || {};
-  const s = acc.ratios?.solvencia || {};
-  const sc = acc.scoring || {};
-  const ups = upside(acc);
+  const v  = acc.ratios?.valoracion   || {};
+  const r  = acc.ratios?.rentabilidad || {};
+  const s  = acc.ratios?.solvencia    || {};
+  const sc = acc.scoring              || {};
+  const ups = bestUpside(acc);
   const precio = acc.precio_actual;
+  const cardId = `card-${acc.ticker.replace(/[^a-zA-Z0-9]/g, '_')}`;
 
-  const upsideHtml = ups !== null && ups !== undefined
+  const upsHtml = ups !== null && ups !== undefined
     ? `<span class="upside-badge ${ups >= 0 ? 'upside-pos' : 'upside-neg'}">${ups >= 0 ? '+' : ''}${ups.toFixed(1)}% DCF</span>`
     : '';
 
-  const cardId = `card-${acc.ticker.replace(/[^a-zA-Z0-9]/g, '_')}`;
+  // Valores brutos para ref dots
+  const peR   = fmtRaw(v.pe);
+  const evR   = fmtRaw(v.ev_ebitda);
+  const pbR   = fmtRaw(v.pb);
+  const psR   = fmtRaw(v.ps);
+  const roeR  = fmtRaw(r.roe);
+  const roicR = fmtRaw(r.roic);
+  const nmR   = fmtRaw(r.net_margin);
+  const deR   = fmtRaw(s.debt_equity);
 
-  return `
-    <div class="stock-card" id="${cardId}" data-ticker="${acc.ticker}">
-      <div class="card-header">
-        <div class="card-identity">
-          <div class="card-ticker">${acc.ticker}</div>
-          <div class="card-name" title="${acc.nombre || ''}">${acc.nombre || '—'}</div>
-        </div>
-        <div class="card-badges">
-          ${acc.categoria ? `<span class="badge badge-categoria">${acc.categoria}</span>` : ''}
-          ${acc.sector && acc.sector !== 'Unknown' ? `<span class="badge badge-sector">${acc.sector}</span>` : ''}
-        </div>
+  return `<div class="stock-card" id="${cardId}" data-ticker="${acc.ticker}">
+    <div class="card-header">
+      <div>
+        <div class="card-ticker">${acc.ticker}</div>
+        <div class="card-name" title="${acc.nombre || ''}">${acc.nombre || '—'}</div>
       </div>
-
-      <div class="card-score-section">
-        ${renderScoreCircle(sc.score_global)}
-        <div class="verdicts">
-          <div class="veredicto-pill veredicto-${sc.veredicto || 'JUSTA'}">${sc.veredicto || '—'}</div>
-          <div class="senal-pill ${senalClass(sc.señal)}">${sc.señal || '—'}</div>
-        </div>
+      <div class="card-badges">
+        ${acc.categoria ? `<span class="badge badge-categoria">${acc.categoria}</span>` : ''}
+        ${acc.sector && acc.sector !== 'Unknown' ? `<span class="badge badge-sector">${acc.sector}</span>` : ''}
       </div>
+    </div>
 
-      <div class="card-price-row">
-        <span class="price-current">${precio ? fmtCurrency(precio, acc.currency) : 'N/D'}</span>
-        <span class="price-currency">${acc.currency || 'USD'}</span>
-        ${upsideHtml}
+    <div class="card-score-section">
+      ${renderScoreCircle(sc.score_global)}
+      <div class="verdicts">
+        <div class="veredicto-pill veredicto-${sc.veredicto || 'JUSTA'}">${sc.veredicto || '—'}</div>
+        <div class="senal-pill ${senalClass(sc.señal)}">${sc.señal || '—'}</div>
       </div>
+    </div>
 
-      <div class="card-ratios">
-        <table class="ratios-table">
-          <tr>
-            <td class="ratio-name">P/E</td>
-            <td class="ratio-value">${fmt(v.pe, 'x')}</td>
-            <td class="ratio-name">EV/EBITDA</td>
-            <td class="ratio-value">${fmt(v.ev_ebitda, 'x')}</td>
-          </tr>
-          <tr>
-            <td class="ratio-name">P/B</td>
-            <td class="ratio-value">${fmt(v.pb, 'x')}</td>
-            <td class="ratio-name">P/S</td>
-            <td class="ratio-value">${fmt(v.ps, 'x')}</td>
-          </tr>
-          <tr>
-            <td class="ratio-name">ROE</td>
-            <td class="ratio-value">${fmt(r.roe, '%')}</td>
-            <td class="ratio-name">ROIC</td>
-            <td class="ratio-value">${fmt(r.roic, '%')}</td>
-          </tr>
-          <tr>
-            <td class="ratio-name">Mg. Neto</td>
-            <td class="ratio-value">${fmt(r.net_margin, '%')}</td>
-            <td class="ratio-name">D/E</td>
-            <td class="ratio-value">${fmt(s.debt_equity, 'x')}</td>
-          </tr>
-        </table>
-      </div>
+    <div class="card-price-row">
+      <span class="price-current">${precio ? fmtCurrency(precio, acc.currency) : 'N/D'}</span>
+      <span class="price-currency">${acc.currency || 'USD'}</span>
+      ${upsHtml}
+    </div>
 
-      ${renderSubScores(sc)}
+    <div class="card-ratios">
+      <table class="ratios-table">
+        ${ratioRow('P/E', 'pe', peR, fmt(peR, 'x'), 'EV/EBITDA', 'ev_ebitda', evR, fmt(evR, 'x'))}
+        ${ratioRow('P/B', 'pb', pbR, fmt(pbR, 'x'), 'P/S', 'ps', psR, fmt(psR, 'x'))}
+        ${ratioRow('ROE', 'roe', roeR, fmt(roeR, '%'), 'ROIC', 'roic', roicR, fmt(roicR, '%'))}
+        ${ratioRow('Mg. Neto', 'net_margin', nmR, fmt(nmR, '%'), 'D/E', 'debt_equity', deR, fmt(deR, 'x'))}
+      </table>
+    </div>
 
-      <button class="card-expand-toggle" onclick="toggleExpand('${cardId}', event)">
-        <span>VER DETALLE COMPLETO</span>
-        <span class="expand-arrow">▾</span>
-      </button>
+    ${renderSubScores(sc)}
 
-      <div class="card-expanded" id="${cardId}-expanded">
-        ${renderExpanded(acc)}
-      </div>
-    </div>`;
+    <button class="card-expand-toggle" onclick="toggleExpand('${cardId}',event)">
+      <span>VER DETALLE COMPLETO</span><span class="expand-arrow">▾</span>
+    </button>
+    <div class="card-expanded" id="${cardId}-expanded">
+      ${renderExpanded(acc)}
+    </div>
+  </div>`;
 }
 
-// ─── Sección expandible ───────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════
+// RENDER: EXPANDED SECTION
+// ═══════════════════════════════════════════════════════════════════════
 function renderExpanded(acc) {
-  const v = acc.ratios?.valoracion || {};
-  const r = acc.ratios?.rentabilidad || {};
-  const s = acc.ratios?.solvencia || {};
-  const cr = acc.ratios?.crecimiento || {};
-  const cf = acc.ratios?.cashflow || {};
-  const val = acc.valuacion || {};
-  const bc = acc.benchmark_comparison || {};
-  const bm = bc.benchmark_used || {};
+  const v  = acc.ratios?.valoracion   || {};
+  const r  = acc.ratios?.rentabilidad || {};
+  const s  = acc.ratios?.solvencia    || {};
+  const cr = acc.ratios?.crecimiento  || {};
+  const cf = acc.ratios?.cashflow     || {};
+  const val = acc.valuacion           || {};
+  const bc  = acc.benchmark_comparison || {};
+  const bm  = bc.benchmark_used       || {};
 
-  // Valuaciones intrínsecas
-  const valHtml = `
-    <div class="expanded-section">
-      <div class="expanded-title">VALUACIÓN INTRÍNSECA</div>
-      <div class="val-cards">
-        ${renderValCard(val.dcf, 'DCF 5Y')}
-        ${renderValCard(val.graham, 'Graham')}
-        ${val.gordon?.aplica ? renderValCard(val.gordon, 'Gordon') : ''}
-      </div>
+  const valHtml = `<div class="expanded-section">
+    <div class="expanded-title">VALUACIÓN INTRÍNSECA</div>
+    <div class="val-cards">
+      ${renderValCard(val.dcf, 'DCF 5Y + Terminal')}
+      ${renderValCard(val.graham, 'Graham Number')}
+      ${val.gordon?.aplica ? renderValCard(val.gordon, 'Gordon Growth') : ''}
+    </div>
+  </div>`;
+
+  function expandRatio(key, label, raw, disp) {
+    const dot = raw !== null && raw !== undefined ? renderRefDot(key, raw, disp) : '';
+    return `<div class="modal-ratio-item">
+      <div class="modal-ratio-name">${label}</div>
+      <div class="modal-ratio-value">${disp}${dot}</div>
     </div>`;
+  }
 
-  // Todos los ratios
   const ratiosHtml = `
     <div class="expanded-section">
-      <div class="expanded-title">RATIOS COMPLETOS — VALORACIÓN</div>
+      <div class="expanded-title">VALORACIÓN</div>
       <div class="modal-ratios-grid">
-        ${ratioItem('P/E', fmt(v.pe, 'x'))}
-        ${ratioItem('Forward P/E', fmt(v.forward_pe, 'x'))}
-        ${ratioItem('PEG', fmt(v.peg, 'x'))}
-        ${ratioItem('P/B', fmt(v.pb, 'x'))}
-        ${ratioItem('P/S', fmt(v.ps, 'x'))}
-        ${ratioItem('EV/EBITDA', fmt(v.ev_ebitda, 'x'))}
-        ${ratioItem('Div. Yield', fmt(v.dividend_yield, '%'))}
-        ${ratioItem('Payout Ratio', fmt(v.payout_ratio, '%'))}
+        ${expandRatio('pe',             'P/E',           fmtRaw(v.pe),             fmt(v.pe, 'x'))}
+        ${expandRatio('forward_pe',     'Forward P/E',   fmtRaw(v.forward_pe),     fmt(v.forward_pe, 'x'))}
+        ${expandRatio('peg',            'PEG',           fmtRaw(v.peg),            fmt(v.peg, 'x'))}
+        ${expandRatio('pb',             'P/B',           fmtRaw(v.pb),             fmt(v.pb, 'x'))}
+        ${expandRatio('ps',             'P/S',           fmtRaw(v.ps),             fmt(v.ps, 'x'))}
+        ${expandRatio('ev_ebitda',      'EV/EBITDA',     fmtRaw(v.ev_ebitda),      fmt(v.ev_ebitda, 'x'))}
+        ${expandRatio('dividend_yield', 'Div. Yield',    fmtRaw(v.dividend_yield), fmt(v.dividend_yield, '%'))}
+        ${expandRatio('payout_ratio',   'Payout Ratio',  fmtRaw(v.payout_ratio),   fmt(v.payout_ratio, '%'))}
       </div>
     </div>
     <div class="expanded-section">
-      <div class="expanded-title">RATIOS COMPLETOS — RENTABILIDAD & SOLVENCIA</div>
+      <div class="expanded-title">RENTABILIDAD</div>
       <div class="modal-ratios-grid">
-        ${ratioItem('ROE', fmt(r.roe, '%'))}
-        ${ratioItem('ROA', fmt(r.roa, '%'))}
-        ${ratioItem('ROIC', fmt(r.roic, '%'))}
-        ${ratioItem('Mg. Bruto', fmt(r.gross_margin, '%'))}
-        ${ratioItem('Mg. Operativo', fmt(r.operating_margin, '%'))}
-        ${ratioItem('Mg. Neto', fmt(r.net_margin, '%'))}
-        ${ratioItem('D/E', fmt(s.debt_equity, 'x'))}
-        ${ratioItem('ND/EBITDA', fmt(s.net_debt_ebitda, 'x'))}
-        ${ratioItem('Current Ratio', fmt(s.current_ratio, 'x'))}
-        ${ratioItem('Quick Ratio', fmt(s.quick_ratio, 'x'))}
-        ${ratioItem('Int. Coverage', fmt(s.interest_coverage, 'x'))}
-        ${ratioItem('Rev. Growth', fmt(cr.revenue_growth, '%'))}
-        ${ratioItem('EPS Growth', fmt(cr.earnings_growth, '%'))}
-        ${ratioItem('FCF Yield', fmt(cf.fcf_yield, '%'))}
-        ${ratioItem('FCF/NI', fmt(cf.fcf_ni_ratio, 'x'))}
-        ${ratioItem('Market Cap', fmtLarge(acc.market_cap))}
+        ${expandRatio('roe',              'ROE',          fmtRaw(r.roe),              fmt(r.roe, '%'))}
+        ${expandRatio('roa',              'ROA',          fmtRaw(r.roa),              fmt(r.roa, '%'))}
+        ${expandRatio('roic',             'ROIC',         fmtRaw(r.roic),             fmt(r.roic, '%'))}
+        ${expandRatio('gross_margin',     'Mg. Bruto',    fmtRaw(r.gross_margin),     fmt(r.gross_margin, '%'))}
+        ${expandRatio('operating_margin', 'Mg. Operativo',fmtRaw(r.operating_margin), fmt(r.operating_margin, '%'))}
+        ${expandRatio('net_margin',       'Mg. Neto',     fmtRaw(r.net_margin),       fmt(r.net_margin, '%'))}
+      </div>
+    </div>
+    <div class="expanded-section">
+      <div class="expanded-title">SOLVENCIA &amp; CRECIMIENTO</div>
+      <div class="modal-ratios-grid">
+        ${expandRatio('debt_equity',       'D/E',           fmtRaw(s.debt_equity),        fmt(s.debt_equity, 'x'))}
+        ${expandRatio('net_debt_ebitda',   'ND/EBITDA',     fmtRaw(s.net_debt_ebitda),    fmt(s.net_debt_ebitda, 'x'))}
+        ${expandRatio('current_ratio',     'Current Ratio', fmtRaw(s.current_ratio),      fmt(s.current_ratio, 'x'))}
+        ${expandRatio('quick_ratio',       'Quick Ratio',   fmtRaw(s.quick_ratio),        fmt(s.quick_ratio, 'x'))}
+        ${expandRatio('interest_coverage', 'Int. Coverage', fmtRaw(s.interest_coverage),  fmt(s.interest_coverage, 'x'))}
+        ${expandRatio('revenue_growth',    'Rev. Growth',   fmtRaw(cr.revenue_growth),    fmt(cr.revenue_growth, '%'))}
+        ${expandRatio('earnings_growth',   'EPS Growth',    fmtRaw(cr.earnings_growth),   fmt(cr.earnings_growth, '%'))}
+        ${expandRatio('fcf_yield',         'FCF Yield',     fmtRaw(cf.fcf_yield),         fmt(cf.fcf_yield, '%'))}
+        <div class="modal-ratio-item"><div class="modal-ratio-name">Market Cap</div><div class="modal-ratio-value">${fmtLarge(acc.market_cap)}</div></div>
       </div>
     </div>`;
 
-  // Benchmark comparison
-  const bmHtml = (bc.sector && bm) ? `
-    <div class="expanded-section">
-      <div class="expanded-title">VS. BENCHMARK — ${bc.sector.toUpperCase()}</div>
-      <div class="benchmark-grid">
-        ${benchItem('P/E sector', bm.pe, 'x')}
-        ${benchItem('EV/EBITDA sector', bm.ev_ebitda, 'x')}
-        ${benchItem('P/B sector', bm.pb, 'x')}
-        ${benchItem('ROE sector', bm.roe ? (bm.roe*100).toFixed(1)+'%' : null)}
-        ${benchItem('ROIC sector', bm.roic ? (bm.roic*100).toFixed(1)+'%' : null)}
-        ${benchItem('D/E sector', bm.debt_equity, 'x')}
-      </div>
-      <div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:6px;">
-        ${bc.pe_vs_sector !== undefined ? diffItem('P/E', bc.pe_vs_sector) : ''}
-        ${bc.ev_ebitda_vs_sector !== undefined ? diffItem('EV/EBITDA', bc.ev_ebitda_vs_sector) : ''}
-        ${bc.pb_vs_sector !== undefined ? diffItem('P/B', bc.pb_vs_sector) : ''}
-        ${bc.roe_vs_sector !== undefined ? diffItem('ROE', bc.roe_vs_sector, false) : ''}
-        ${bc.net_margin_vs_sector !== undefined ? diffItem('Mg.Neto', bc.net_margin_vs_sector, false) : ''}
-      </div>
-    </div>` : '';
+  const bmHtml = bc.sector && bm ? `<div class="expanded-section">
+    <div class="expanded-title">VS. BENCHMARK — ${bc.sector.toUpperCase()}</div>
+    <div class="benchmark-grid">
+      ${benchItem('P/E sector', bm.pe, 'x')}
+      ${benchItem('EV/EBITDA sector', bm.ev_ebitda, 'x')}
+      ${benchItem('P/B sector', bm.pb, 'x')}
+      ${benchItem('ROE sector', bm.roe ? (bm.roe * 100).toFixed(1) + '%' : null)}
+      ${benchItem('ROIC sector', bm.roic ? (bm.roic * 100).toFixed(1) + '%' : null)}
+      ${benchItem('D/E sector', bm.debt_equity, 'x')}
+    </div>
+    <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;">
+      ${bc.pe_vs_sector          !== undefined ? diffItem('P/E',     bc.pe_vs_sector)          : ''}
+      ${bc.ev_ebitda_vs_sector   !== undefined ? diffItem('EV/EBITDA',bc.ev_ebitda_vs_sector)  : ''}
+      ${bc.pb_vs_sector          !== undefined ? diffItem('P/B',     bc.pb_vs_sector)          : ''}
+      ${bc.roe_vs_sector         !== undefined ? diffItem('ROE',     bc.roe_vs_sector, false)  : ''}
+      ${bc.net_margin_vs_sector  !== undefined ? diffItem('Mg.Neto', bc.net_margin_vs_sector, false) : ''}
+    </div>
+  </div>` : '';
 
-  // Descripción y notas
-  const descHtml = acc.descripcion ? `
-    <div class="expanded-section">
-      <div class="expanded-title">DESCRIPCIÓN</div>
-      <div style="font-size:0.72rem; color:var(--text-secondary); line-height:1.6;">${acc.descripcion}…</div>
-    </div>` : '';
+  const descHtml = acc.descripcion ? `<div class="expanded-section">
+    <div class="expanded-title">DESCRIPCIÓN</div>
+    <div style="font-size:.72rem;color:var(--text-secondary);line-height:1.6">${acc.descripcion}…</div>
+  </div>` : '';
 
-  const notasHtml = acc.notas ? `
-    <div class="expanded-section">
-      <div class="expanded-title">NOTAS</div>
-      <div class="notes-text">${acc.notas}</div>
-    </div>` : '';
+  const notasHtml = acc.notas ? `<div class="expanded-section">
+    <div class="expanded-title">NOTAS</div>
+    <div class="notes-text">${acc.notas}</div>
+  </div>` : '';
 
   return valHtml + ratiosHtml + bmHtml + descHtml + notasHtml;
 }
@@ -332,119 +887,87 @@ function renderValCard(obj, label) {
   if (!obj) return '';
   const hasData = obj.valor_intrinseco !== null && obj.valor_intrinseco !== undefined;
   const up = obj.upside_pct;
-
-  return `
-    <div class="val-card">
-      <div class="val-card-method">${label}</div>
-      ${hasData
-        ? `<div class="val-card-price">$${obj.valor_intrinseco}</div>
-           ${up !== null && up !== undefined
-             ? `<div class="val-card-upside ${up >= 0 ? 'text-green' : 'text-red'}">${up >= 0 ? '+' : ''}${up.toFixed(1)}%</div>`
-             : ''}`
-        : `<div class="val-card-error">${obj.error || 'Sin datos'}</div>`}
-    </div>`;
-}
-
-function ratioItem(name, valHtml) {
-  return `
-    <div class="modal-ratio-item">
-      <div class="modal-ratio-name">${name}</div>
-      <div class="modal-ratio-value">${valHtml}</div>
-    </div>`;
+  return `<div class="val-card">
+    <div class="val-card-method">${label}</div>
+    ${hasData
+      ? `<div class="val-card-price">$${obj.valor_intrinseco}</div>
+         ${up !== null && up !== undefined
+           ? `<div class="val-card-upside ${up >= 0 ? 'text-green' : 'text-red'}">${up >= 0 ? '+' : ''}${up.toFixed(1)}%</div>`
+           : ''}`
+      : `<div class="val-card-error">${obj.error || 'Sin datos'}</div>`}
+  </div>`;
 }
 
 function benchItem(name, val, suffix = '') {
-  const display = val !== null && val !== undefined ? `${val}${suffix}` : 'N/D';
-  return `
-    <div class="bench-item">
-      <span class="bench-name">${name}</span>
-      <span class="bench-val bench-neu">${display}</span>
-    </div>`;
+  const disp = val !== null && val !== undefined ? `${val}${suffix}` : 'N/D';
+  return `<div class="bench-item"><span class="bench-name">${name}</span><span class="bench-val bench-neu">${disp}</span></div>`;
 }
 
 function diffItem(name, pct, lowerIsBetter = true) {
-  const positive = lowerIsBetter ? pct > 0 : pct > 0;
+  const positive = pct > 0;
   const cls = Math.abs(pct) < 5 ? 'bench-neu' : (positive ? 'bench-pos' : 'bench-neg');
-  const sign = pct > 0 ? '+' : '';
-  return `
-    <span class="bench-item" style="min-width:auto; gap:4px;">
-      <span class="bench-name">${name}</span>
-      <span class="bench-val ${cls}">${sign}${pct.toFixed(1)}%</span>
-    </span>`;
+  return `<span class="bench-item" style="min-width:auto;gap:4px;">
+    <span class="bench-name">${name}</span>
+    <span class="bench-val ${cls}">${pct > 0 ? '+' : ''}${pct.toFixed(1)}%</span>
+  </span>`;
 }
 
-// ─── Toggle expand ────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════
+// TOGGLE EXPAND
+// ═══════════════════════════════════════════════════════════════════════
 function toggleExpand(cardId, event) {
   event.stopPropagation();
-  const card = document.getElementById(cardId);
+  const card     = document.getElementById(cardId);
   const expanded = document.getElementById(`${cardId}-expanded`);
-  const btn = card.querySelector('.card-expand-toggle');
+  const btn      = card?.querySelector('.card-expand-toggle');
   if (!card || !expanded) return;
   const isOpen = expanded.classList.contains('open');
   expanded.classList.toggle('open', !isOpen);
-  btn.classList.toggle('expanded', !isOpen);
+  btn?.classList.toggle('expanded', !isOpen);
 }
 
-// ─── Filtrar y ordenar ────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════
+// FILTRAR Y ORDENAR
+// ═══════════════════════════════════════════════════════════════════════
 function aplicarFiltros() {
   if (!state.data) return;
 
-  const cat = document.getElementById('filterCategoria').value;
-  const verd = document.getElementById('filterVeredicto').value;
-  const senal = document.getElementById('filterSenal').value;
+  const cat    = document.getElementById('filterCategoria').value;
+  const verd   = document.getElementById('filterVeredicto').value;
+  const senal  = document.getElementById('filterSenal').value;
   const sector = document.getElementById('filterSector').value;
   const search = document.getElementById('searchInput').value.toLowerCase();
   const sortBy = document.getElementById('sortBy').value;
 
   let result = state.data.acciones.filter(acc => {
-    if (cat && acc.categoria !== cat) return false;
-    if (verd && acc.scoring?.veredicto !== verd) return false;
-    if (senal && acc.scoring?.señal !== senal) return false;
+    if (cat    && acc.categoria !== cat) return false;
+    if (verd   && acc.scoring?.veredicto !== verd) return false;
+    if (senal  && acc.scoring?.señal !== senal) return false;
     if (sector && acc.sector !== sector) return false;
-    if (search) {
-      const text = `${acc.ticker} ${acc.nombre} ${acc.categoria}`.toLowerCase();
-      if (!text.includes(search)) return false;
-    }
+    if (search && !`${acc.ticker} ${acc.nombre} ${acc.categoria}`.toLowerCase().includes(search)) return false;
     return true;
   });
 
-  // Ordenar
   result.sort((a, b) => {
-    let va, vb;
+    const dir = state.sortDir === 'asc' ? 1 : -1;
     switch (sortBy) {
-      case 'score_global':
-        va = a.scoring?.score_global ?? -1;
-        vb = b.scoring?.score_global ?? -1;
-        break;
-      case 'score_valoracion':
-        va = a.scoring?.score_valoracion ?? -1;
-        vb = b.scoring?.score_valoracion ?? -1;
-        break;
-      case 'score_calidad':
-        va = a.scoring?.score_calidad ?? -1;
-        vb = b.scoring?.score_calidad ?? -1;
-        break;
-      case 'ticker':
-        return state.sortDir === 'asc'
-          ? a.ticker.localeCompare(b.ticker)
-          : b.ticker.localeCompare(a.ticker);
-      case 'upside':
-        va = upside(a) ?? -999;
-        vb = upside(b) ?? -999;
-        break;
-      default:
-        va = a.scoring?.score_global ?? -1;
-        vb = b.scoring?.score_global ?? -1;
+      case 'score_valoracion': return ((a.scoring?.score_valoracion ?? -1) - (b.scoring?.score_valoracion ?? -1)) * dir;
+      case 'score_calidad':    return ((a.scoring?.score_calidad    ?? -1) - (b.scoring?.score_calidad    ?? -1)) * dir;
+      case 'ticker':           return a.ticker.localeCompare(b.ticker) * dir;
+      case 'upside':           return ((bestUpside(a) ?? -999) - (bestUpside(b) ?? -999)) * dir;
+      default:                 return ((a.scoring?.score_global     ?? -1) - (b.scoring?.score_global     ?? -1)) * dir;
     }
-    return state.sortDir === 'asc' ? va - vb : vb - va;
   });
 
   state.filtered = result;
   renderGrid();
 }
 
-// ─── Render grid ──────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════
+// RENDER GRID
+// ═══════════════════════════════════════════════════════════════════════
 function renderGrid() {
+  clearTipRegistry();
   const grid = document.getElementById('screenerGrid');
   if (!state.filtered.length) {
     grid.innerHTML = '<div class="empty-state">No hay acciones que coincidan con los filtros seleccionados.</div>';
@@ -453,82 +976,187 @@ function renderGrid() {
   grid.innerHTML = state.filtered.map(renderCard).join('');
 }
 
-// ─── Poblar filtros ────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════
+// POBLAR FILTROS
+// ═══════════════════════════════════════════════════════════════════════
 function poblarFiltros(data) {
-  const categorias = [...new Set(data.acciones.map(a => a.categoria).filter(Boolean))].sort();
-  const sectores = [...new Set(data.acciones.map(a => a.sector).filter(s => s && s !== 'Unknown'))].sort();
+  const cats    = [...new Set(data.acciones.map(a => a.categoria).filter(Boolean))].sort();
+  const sectors = [...new Set(data.acciones.map(a => a.sector).filter(s => s && s !== 'Unknown'))].sort();
 
   const selCat = document.getElementById('filterCategoria');
-  categorias.forEach(c => {
-    const opt = document.createElement('option');
-    opt.value = c; opt.textContent = c;
-    selCat.appendChild(opt);
-  });
+  cats.forEach(c => { const o = document.createElement('option'); o.value = o.textContent = c; selCat.appendChild(o); });
 
   const selSec = document.getElementById('filterSector');
-  sectores.forEach(s => {
-    const opt = document.createElement('option');
-    opt.value = s; opt.textContent = s;
-    selSec.appendChild(opt);
-  });
+  sectors.forEach(s => { const o = document.createElement('option'); o.value = o.textContent = s; selSec.appendChild(o); });
 }
 
-// ─── Cargar datos ─────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════
+// CARGAR DATOS
+// ═══════════════════════════════════════════════════════════════════════
 async function cargarDatos() {
   const grid = document.getElementById('screenerGrid');
+
+  // Reset filtros dinámicos
+  ['filterCategoria', 'filterSector'].forEach(id => {
+    const sel = document.getElementById(id);
+    if (sel) sel.innerHTML = '<option value="">Todas</option>';
+  });
 
   try {
     const resp = await fetch('data.json?v=' + Date.now());
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const data = await resp.json();
+
+    if (data._placeholder || !data.acciones?.length) {
+      grid.innerHTML = `<div class="empty-state">
+        <strong>No hay datos aún.</strong><br>
+        <span style="font-size:.8rem;color:var(--text-muted);">
+          Subí tu <strong>tickers.xlsx</strong> con el botón de arriba para disparar el análisis.<br>
+          O esperá la actualización diaria de las 06:00 UTC.
+        </span>
+      </div>`;
+      return;
+    }
+
     state.data = data;
 
-    // Header stats
     document.getElementById('updateDate').textContent = fmtDate(data.ultima_actualizacion);
-    document.getElementById('statTotal').textContent = data.total_tickers;
-    document.getElementById('statOk').textContent = data.exitosos;
-    document.getElementById('statErr').textContent = data.con_errores?.length || 0;
+    document.getElementById('statTotal').textContent  = data.total_tickers;
+    document.getElementById('statOk').textContent     = data.exitosos;
+    document.getElementById('statErr').textContent    = data.con_errores?.length || 0;
 
     poblarFiltros(data);
     aplicarFiltros();
 
   } catch (err) {
-    grid.innerHTML = `
-      <div class="empty-state" style="color:var(--red);">
-        <strong>Error cargando data.json</strong><br>
-        <span style="font-size:0.8rem; color:var(--text-muted);">${err.message}</span><br><br>
-        <span style="font-size:0.75rem;">El workflow de GitHub Actions debe ejecutarse primero para generar los datos.</span>
-      </div>`;
+    grid.innerHTML = `<div class="empty-state" style="color:var(--red);">
+      <strong>Error cargando data.json</strong><br>
+      <span style="font-size:.8rem;color:var(--text-muted);">${err.message}</span>
+    </div>`;
   }
 }
 
-// ─── Event listeners ──────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════
+// SETTINGS MODAL
+// ═══════════════════════════════════════════════════════════════════════
+function initSettings() {
+  const modal      = document.getElementById('settingsModal');
+  const btn        = document.getElementById('settingsBtn');
+  const closeBtn   = document.getElementById('settingsClose');
+  const tokenInput = document.getElementById('tokenInput');
+  const saveBtn    = document.getElementById('tokenSave');
+  const testBtn    = document.getElementById('tokenTest');
+  const clearBtn   = document.getElementById('tokenClear');
+  const toggleBtn  = document.getElementById('tokenToggle');
+  const statusEl   = document.getElementById('tokenStatus');
+
+  // Abrir/cerrar modal
+  btn.addEventListener('click', () => {
+    tokenInput.value = Settings.getToken();
+    modal.classList.remove('hidden');
+    btn.classList.add('active');
+  });
+
+  [closeBtn].forEach(el => el.addEventListener('click', () => {
+    modal.classList.add('hidden');
+    btn.classList.remove('active');
+  }));
+
+  modal.addEventListener('click', e => { if (e.target === modal) { modal.classList.add('hidden'); btn.classList.remove('active'); } });
+
+  // Mostrar/ocultar token
+  toggleBtn.addEventListener('click', () => {
+    tokenInput.type = tokenInput.type === 'password' ? 'text' : 'password';
+  });
+
+  // Guardar
+  saveBtn.addEventListener('click', () => {
+    const t = tokenInput.value.trim();
+    if (!t) { setTokenStatus('Ingresá un token.', 'err'); return; }
+    Settings.setToken(t);
+    setTokenStatus('✓ Token guardado.', 'ok');
+  });
+
+  // Limpiar
+  clearBtn.addEventListener('click', () => {
+    Settings.clearToken();
+    tokenInput.value = '';
+    setTokenStatus('Token eliminado.', '');
+  });
+
+  // Probar conexión
+  testBtn.addEventListener('click', async () => {
+    const t = tokenInput.value.trim();
+    if (!t) { setTokenStatus('Ingresá un token primero.', 'err'); return; }
+    setTokenStatus('Probando...', 'loading');
+    try {
+      const resp = await githubFetch(`/repos/${REPO_OWNER}/${REPO_NAME}`, t);
+      if (resp.ok) {
+        setTokenStatus('✓ Conexión OK — podés subir archivos.', 'ok');
+      } else if (resp.status === 401) {
+        setTokenStatus('✗ Token inválido o expirado.', 'err');
+      } else if (resp.status === 403) {
+        setTokenStatus('✗ Sin permisos sobre el repo. Verificá scopes.', 'err');
+      } else {
+        setTokenStatus(`✗ Error ${resp.status}.`, 'err');
+      }
+    } catch (e) {
+      setTokenStatus(`✗ ${e.message}`, 'err');
+    }
+  });
+
+  function setTokenStatus(msg, cls) {
+    statusEl.textContent = msg;
+    statusEl.className = `token-status${cls ? ' ' + cls : ''}`;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
+  Tooltip.init();
+  initSettings();
   cargarDatos();
 
+  // Filtros y ordenamiento
   ['filterCategoria', 'filterVeredicto', 'filterSenal', 'filterSector', 'sortBy']
     .forEach(id => document.getElementById(id)?.addEventListener('change', aplicarFiltros));
-
   document.getElementById('searchInput')?.addEventListener('input', aplicarFiltros);
 
+  // Dirección de sort
   document.getElementById('sortDir').addEventListener('click', () => {
     state.sortDir = state.sortDir === 'desc' ? 'asc' : 'desc';
     document.getElementById('sortDir').textContent = state.sortDir === 'asc' ? '↑' : '↓';
     aplicarFiltros();
   });
 
-  // Cerrar modal
-  document.getElementById('modalClose')?.addEventListener('click', () => {
-    document.getElementById('detailModal').classList.add('hidden');
+  // Upload de Excel
+  const fileInput = document.getElementById('tickerFileInput');
+  fileInput.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (file) { uploadExcel(file); fileInput.value = ''; }
   });
 
-  document.getElementById('detailModal')?.addEventListener('click', (e) => {
-    if (e.target.id === 'detailModal') {
-      document.getElementById('detailModal').classList.add('hidden');
+  // Drag & drop sobre toda la página
+  document.body.addEventListener('dragover', e => {
+    e.preventDefault();
+    document.body.style.outline = '2px dashed var(--blue)';
+  });
+  document.body.addEventListener('dragleave', () => {
+    document.body.style.outline = '';
+  });
+  document.body.addEventListener('drop', e => {
+    e.preventDefault();
+    document.body.style.outline = '';
+    const file = e.dataTransfer.files[0];
+    if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+      uploadExcel(file);
     }
   });
 
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') document.getElementById('detailModal').classList.add('hidden');
-  });
+  // Cerrar modal detalle
+  document.getElementById('modalClose')?.addEventListener('click', () => document.getElementById('detailModal').classList.add('hidden'));
+  document.getElementById('detailModal')?.addEventListener('click', e => { if (e.target.id === 'detailModal') document.getElementById('detailModal').classList.add('hidden'); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') { document.getElementById('detailModal').classList.add('hidden'); document.getElementById('settingsModal').classList.add('hidden'); document.getElementById('settingsBtn').classList.remove('active'); } });
 });

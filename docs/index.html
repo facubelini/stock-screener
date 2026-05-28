@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Stock Screener — Análisis Fundamental</title>
   <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -39,14 +40,15 @@
     </div>
   </header>
 
+  <!-- STATUS BAR (progreso de upload) -->
+  <div id="statusBar" class="status-bar" style="display:none"></div>
+
   <!-- CONTROLES -->
   <div class="controls-bar">
     <div class="filters">
       <div class="filter-group">
         <label>CATEGORÍA</label>
-        <select id="filterCategoria">
-          <option value="">Todas</option>
-        </select>
+        <select id="filterCategoria"><option value="">Todas</option></select>
       </div>
       <div class="filter-group">
         <label>VEREDICTO</label>
@@ -69,11 +71,10 @@
       </div>
       <div class="filter-group">
         <label>SECTOR</label>
-        <select id="filterSector">
-          <option value="">Todos</option>
-        </select>
+        <select id="filterSector"><option value="">Todos</option></select>
       </div>
     </div>
+
     <div class="sort-group">
       <label>ORDENAR POR</label>
       <select id="sortBy">
@@ -85,12 +86,37 @@
       </select>
       <button id="sortDir" class="sort-dir-btn" title="Cambiar dirección">↓</button>
     </div>
+
     <div class="search-group">
       <input type="text" id="searchInput" placeholder="Buscar ticker o nombre..." autocomplete="off">
     </div>
+
+    <!-- UPLOAD + SETTINGS -->
+    <div class="upload-group">
+      <label class="upload-btn" title="Subir tickers.xlsx desde tu computadora">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+          <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+          <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708l3-3z"/>
+        </svg>
+        Subir tickers.xlsx
+        <input type="file" id="tickerFileInput" accept=".xlsx,.xls" style="display:none">
+      </label>
+      <button id="settingsBtn" class="settings-btn" title="Configurar GitHub Token">⚙</button>
+    </div>
   </div>
 
-  <!-- GRID DE CARDS -->
+  <!-- LEYENDA DE COLORES DE REFERENCIA -->
+  <div class="ref-legend">
+    <span class="legend-label">REFERENCIA:</span>
+    <span class="ref-dot ref-great legend-item" title="Excelente"></span><span class="legend-text">Excelente</span>
+    <span class="ref-dot ref-good legend-item"  title="Bueno"></span><span class="legend-text">Bueno</span>
+    <span class="ref-dot ref-neutral legend-item" title="Razonable"></span><span class="legend-text">Razonable</span>
+    <span class="ref-dot ref-warn legend-item" title="Elevado/Riesgo"></span><span class="legend-text">Elevado</span>
+    <span class="ref-dot ref-bad legend-item" title="Malo/Peligroso"></span><span class="legend-text">Malo</span>
+    <span class="legend-hint">Hover sobre ● para ver umbrales</span>
+  </div>
+
+  <!-- GRID -->
   <main id="screenerGrid" class="screener-grid">
     <div class="loading-state">
       <div class="loading-spinner"></div>
@@ -98,13 +124,63 @@
     </div>
   </main>
 
-  <!-- MODAL DE DETALLE -->
+  <!-- MODAL DETALLE -->
   <div id="detailModal" class="modal-overlay hidden">
     <div class="modal-container">
       <button class="modal-close" id="modalClose">✕</button>
       <div id="modalContent"></div>
     </div>
   </div>
+
+  <!-- MODAL SETTINGS -->
+  <div id="settingsModal" class="modal-overlay hidden">
+    <div class="modal-container settings-modal">
+      <button class="modal-close" id="settingsClose">✕</button>
+      <h2 class="settings-title">⚙ Configuración</h2>
+
+      <div class="settings-section">
+        <div class="settings-section-title">GITHUB TOKEN</div>
+        <p class="settings-hint">
+          Necesario para subir <code>tickers.xlsx</code> directamente desde el navegador sin usar git.<br>
+          Creá un token en <a href="https://github.com/settings/tokens/new?scopes=repo&description=stock-screener" target="_blank" rel="noopener">github.com/settings/tokens</a>
+          → Classic → scope <code>repo</code>.<br>
+          <strong>Se guarda solo en tu navegador (localStorage). No se envía a ningún servidor.</strong>
+        </p>
+        <div class="token-input-wrap">
+          <input type="password" id="tokenInput" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" autocomplete="off" spellcheck="false">
+          <button id="tokenToggle" class="token-toggle" title="Mostrar/ocultar">👁</button>
+        </div>
+        <div class="settings-actions">
+          <button id="tokenSave" class="btn-primary">Guardar token</button>
+          <button id="tokenTest" class="btn-secondary">Probar conexión</button>
+          <button id="tokenClear" class="btn-danger">Borrar</button>
+        </div>
+        <div id="tokenStatus" class="token-status"></div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">REPOSITORIO</div>
+        <p class="settings-hint mono-sm">
+          facubelini/stock-screener — branch: master<br>
+          El workflow se dispara automáticamente al subir el Excel.
+        </p>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-section-title">CÓMO USAR EL UPLOAD</div>
+        <ol class="settings-steps">
+          <li>Creá un GitHub Token con scope <code>repo</code> y guardalo acá.</li>
+          <li>Hacé click en <strong>Subir tickers.xlsx</strong> y seleccioná tu archivo Excel.</li>
+          <li>El archivo reemplaza <code>tickers.xlsx</code> en el repositorio.</li>
+          <li>GitHub Actions corre el análisis automáticamente (~30-60 seg).</li>
+          <li>El dashboard se actualiza al terminar.</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOOLTIP global -->
+  <div id="globalTooltip" class="custom-tooltip"></div>
 
   <footer class="site-footer">
     <p>
