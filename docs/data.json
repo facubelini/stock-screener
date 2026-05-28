@@ -1,9 +1,1214 @@
 {
-  "ultima_actualizacion": null,
-  "total_tickers": 0,
-  "exitosos": 0,
+  "ultima_actualizacion": "2026-05-28T14:16:57.066547+00:00",
+  "total_tickers": 10,
+  "exitosos": 10,
   "con_errores": [],
-  "acciones": [],
-  "_placeholder": true,
-  "_message": "Ejecutar el workflow de GitHub Actions para generar los datos reales"
+  "acciones": [
+    {
+      "ticker": "AAPL",
+      "nombre": "Apple Inc.",
+      "categoria": "",
+      "notas": "Mega cap, iPhone ecosystem",
+      "sector": "Technology",
+      "industria": "Consumer Electronics",
+      "precio_actual": 312.18,
+      "market_cap": 4585098838016,
+      "currency": "USD",
+      "ratios": {
+        "valoracion": {
+          "pe": 37.75,
+          "forward_pe": 32.49,
+          "peg": 2.68,
+          "pb": 43.0,
+          "ps": 10.16,
+          "ev_ebitda": 28.64,
+          "ev_revenue": 10.15,
+          "dividend_yield": 35.0,
+          "payout_ratio": 12.59
+        },
+        "rentabilidad": {
+          "roe": 141.47,
+          "roa": 26.23,
+          "roic": 0.0,
+          "gross_margin": 47.86,
+          "operating_margin": 32.27,
+          "net_margin": 27.15
+        },
+        "solvencia": {
+          "debt_equity": 79.55,
+          "net_debt_ebitda": 0.1,
+          "current_ratio": 1.07,
+          "quick_ratio": 0.91,
+          "interest_coverage": null,
+          "total_debt": 84710998016,
+          "total_cash": 68507000832,
+          "net_debt": 16203997184.0
+        },
+        "crecimiento": {
+          "revenue_growth": 16.6,
+          "earnings_growth": 21.8,
+          "earnings_quarterly_growth": 19.4
+        },
+        "cashflow": {
+          "free_cashflow": 101090746368,
+          "fcf_ni_ratio": 0.82,
+          "fcf_yield": 2.2,
+          "operating_cashflow": 140222005248
+        }
+      },
+      "valuacion": {
+        "dcf": {
+          "metodo": "DCF 5 años + terminal",
+          "valor_intrinseco": 160.77,
+          "precio_actual": 312.18,
+          "upside_pct": -48.5,
+          "parametros": {
+            "tasa_crecimiento_pct": 12.0,
+            "wacc_pct": 9.0,
+            "g_terminal_pct": 2.5,
+            "fcf_base": 101090746368,
+            "beta": 1.06
+          },
+          "error": null
+        },
+        "graham": {
+          "metodo": "Graham Number",
+          "valor_intrinseco": 420.19,
+          "precio_actual": 312.18,
+          "upside_pct": 34.6,
+          "parametros": {
+            "eps": 8.27,
+            "growth_g_pct": 20,
+            "aaa_yield": 4.2,
+            "formula": "EPS × (8.5 + 2g) × 4.4 / AAA_yield"
+          },
+          "error": null
+        },
+        "gordon": {
+          "metodo": "Gordon Growth",
+          "valor_intrinseco": 58.0,
+          "precio_actual": 312.18,
+          "upside_pct": -81.4,
+          "parametros": {
+            "dividendo_actual": 1.08,
+            "d1": 1.16,
+            "r_pct": 9.0,
+            "g_pct": 7.0
+          },
+          "aplica": true,
+          "error": null
+        }
+      },
+      "scoring": {
+        "score_global": 43.8,
+        "score_valoracion": 26.2,
+        "score_calidad": 64.0,
+        "score_salud": 38.3,
+        "veredicto": "CARA",
+        "señal": "EVITAR"
+      },
+      "benchmark_comparison": {
+        "pe_vs_sector": -34.8,
+        "ev_ebitda_vs_sector": -43.2,
+        "pb_vs_sector": -616.7,
+        "roe_vs_sector": 543.0,
+        "net_margin_vs_sector": 50.8,
+        "benchmark_used": {
+          "pe": 28.0,
+          "ev_ebitda": 20.0,
+          "pb": 6.0,
+          "ps": 5.5,
+          "roe": 0.22,
+          "roic": 0.18,
+          "debt_equity": 0.45,
+          "net_margin": 0.18,
+          "gross_margin": 0.55
+        },
+        "sector": "Technology"
+      },
+      "error": null,
+      "timestamp": "2026-05-28T14:16:54.912719+00:00",
+      "descripcion": "Apple Inc. designs, manufactures, and markets smartphones, personal computers, tablets, wearables, and accessories worldwide. The company offers iPhone, a line of smartphones; Mac, a line of personal computers; iPad, a line of multi-purpose tablets; and wearables, home, and accessories comprising Ai"
+    },
+    {
+      "ticker": "MSFT",
+      "nombre": "Microsoft Corp.",
+      "categoria": "",
+      "notas": "Cloud + AI, Azure",
+      "sector": "Technology",
+      "industria": "Software - Infrastructure",
+      "precio_actual": 427.815,
+      "market_cap": 3177995829248,
+      "currency": "USD",
+      "ratios": {
+        "valoracion": {
+          "pe": 25.47,
+          "forward_pe": 22.12,
+          "peg": 1.28,
+          "pb": 7.67,
+          "ps": 9.99,
+          "ev_ebitda": 16.88,
+          "ev_revenue": 9.78,
+          "dividend_yield": 88.0,
+          "payout_ratio": 20.73
+        },
+        "rentabilidad": {
+          "roe": 34.01,
+          "roa": 14.81,
+          "roic": 0.0,
+          "gross_margin": 68.31,
+          "operating_margin": 46.33,
+          "net_margin": 39.34
+        },
+        "solvencia": {
+          "debt_equity": 30.27,
+          "net_debt_ebitda": 0.26,
+          "current_ratio": 1.28,
+          "quick_ratio": 1.14,
+          "interest_coverage": null,
+          "total_debt": 125431996416,
+          "total_cash": 78227996672,
+          "net_debt": 47203999744.0
+        },
+        "crecimiento": {
+          "revenue_growth": 18.3,
+          "earnings_growth": 23.4,
+          "earnings_quarterly_growth": 23.1
+        },
+        "cashflow": {
+          "free_cashflow": 37011251200,
+          "fcf_ni_ratio": 0.3,
+          "fcf_yield": 1.16,
+          "operating_cashflow": 170141007872
+        }
+      },
+      "valuacion": {
+        "dcf": {
+          "metodo": "DCF 5 años + terminal",
+          "valor_intrinseco": 108.5,
+          "precio_actual": 427.815,
+          "upside_pct": -74.6,
+          "parametros": {
+            "tasa_crecimiento_pct": 12.0,
+            "wacc_pct": 9.1,
+            "g_terminal_pct": 2.5,
+            "fcf_base": 37011251200,
+            "beta": 1.09
+          },
+          "error": null
+        },
+        "graham": {
+          "metodo": "Graham Number",
+          "valor_intrinseco": 853.6,
+          "precio_actual": 427.815,
+          "upside_pct": 99.5,
+          "parametros": {
+            "eps": 16.8,
+            "growth_g_pct": 20,
+            "aaa_yield": 4.2,
+            "formula": "EPS × (8.5 + 2g) × 4.4 / AAA_yield"
+          },
+          "error": null
+        },
+        "gordon": {
+          "metodo": "Gordon Growth",
+          "valor_intrinseco": 183.85,
+          "precio_actual": 427.815,
+          "upside_pct": -57.0,
+          "parametros": {
+            "dividendo_actual": 3.64,
+            "d1": 3.89,
+            "r_pct": 9.1,
+            "g_pct": 7.0
+          },
+          "aplica": true,
+          "error": null
+        }
+      },
+      "scoring": {
+        "score_global": 61.0,
+        "score_valoracion": 53.8,
+        "score_calidad": 68.0,
+        "score_salud": 61.7,
+        "veredicto": "JUSTA",
+        "señal": "COMPRA MODERADA"
+      },
+      "benchmark_comparison": {
+        "pe_vs_sector": 9.0,
+        "ev_ebitda_vs_sector": 15.6,
+        "pb_vs_sector": -27.8,
+        "roe_vs_sector": 54.6,
+        "net_margin_vs_sector": 118.6,
+        "benchmark_used": {
+          "pe": 28.0,
+          "ev_ebitda": 20.0,
+          "pb": 6.0,
+          "ps": 5.5,
+          "roe": 0.22,
+          "roic": 0.18,
+          "debt_equity": 0.45,
+          "net_margin": 0.18,
+          "gross_margin": 0.55
+        },
+        "sector": "Technology"
+      },
+      "error": null,
+      "timestamp": "2026-05-28T14:16:55.572125+00:00",
+      "descripcion": "Microsoft Corporation develops and supports software, services, devices, and solutions worldwide. The Productivity and Business Processes segment offers Microsoft 365 commercial, enterprise mobility + security, windows commercial, power BI, exchange, sharepoint, Microsoft teams, security and complia"
+    },
+    {
+      "ticker": "GOOGL",
+      "nombre": "Alphabet Inc.",
+      "categoria": "",
+      "notas": "Search + Cloud",
+      "sector": "Communication Services",
+      "industria": "Internet Content & Information",
+      "precio_actual": 389.891,
+      "market_cap": 4723702235136,
+      "currency": "USD",
+      "ratios": {
+        "valoracion": {
+          "pe": 29.76,
+          "forward_pe": 26.94,
+          "peg": 1.51,
+          "pb": 9.87,
+          "ps": 11.18,
+          "ev_ebitda": 29.01,
+          "ev_revenue": 11.08,
+          "dividend_yield": 23.0,
+          "payout_ratio": 6.41
+        },
+        "rentabilidad": {
+          "roe": 38.88,
+          "roa": 14.64,
+          "roic": 0.0,
+          "gross_margin": 60.37,
+          "operating_margin": 36.12,
+          "net_margin": 37.92
+        },
+        "solvencia": {
+          "debt_equity": 20.03,
+          "net_debt_ebitda": -0.19,
+          "current_ratio": 1.92,
+          "quick_ratio": 1.71,
+          "interest_coverage": null,
+          "total_debt": 95875997696,
+          "total_cash": 126839996416,
+          "net_debt": -30963998720.0
+        },
+        "crecimiento": {
+          "revenue_growth": 21.8,
+          "earnings_growth": 82.0,
+          "earnings_quarterly_growth": 81.2
+        },
+        "cashflow": {
+          "free_cashflow": 27921750016,
+          "fcf_ni_ratio": 0.17,
+          "fcf_yield": 0.59,
+          "operating_cashflow": 174353006592
+        }
+      },
+      "valuacion": {
+        "dcf": {
+          "metodo": "DCF 5 años + terminal",
+          "valor_intrinseco": 103.68,
+          "precio_actual": 389.891,
+          "upside_pct": -73.4,
+          "parametros": {
+            "tasa_crecimiento_pct": 12.0,
+            "wacc_pct": 9.9,
+            "g_terminal_pct": 2.5,
+            "fcf_base": 27921750016,
+            "beta": 1.27
+          },
+          "error": null
+        },
+        "graham": {
+          "metodo": "Graham Number",
+          "valor_intrinseco": 665.6,
+          "precio_actual": 389.891,
+          "upside_pct": 70.7,
+          "parametros": {
+            "eps": 13.1,
+            "growth_g_pct": 20,
+            "aaa_yield": 4.2,
+            "formula": "EPS × (8.5 + 2g) × 4.4 / AAA_yield"
+          },
+          "error": null
+        },
+        "gordon": {
+          "metodo": "Gordon Growth",
+          "valor_intrinseco": 32.45,
+          "precio_actual": 389.891,
+          "upside_pct": -91.7,
+          "parametros": {
+            "dividendo_actual": 0.88,
+            "d1": 0.94,
+            "r_pct": 9.9,
+            "g_pct": 7.0
+          },
+          "aplica": true,
+          "error": null
+        }
+      },
+      "scoring": {
+        "score_global": 49.6,
+        "score_valoracion": 16.2,
+        "score_calidad": 71.0,
+        "score_salud": 73.3,
+        "veredicto": "CARA",
+        "señal": "EVITAR"
+      },
+      "benchmark_comparison": {
+        "pe_vs_sector": -65.3,
+        "ev_ebitda_vs_sector": -190.1,
+        "pb_vs_sector": -294.8,
+        "roe_vs_sector": 143.0,
+        "net_margin_vs_sector": 216.0,
+        "benchmark_used": {
+          "pe": 18.0,
+          "ev_ebitda": 10.0,
+          "pb": 2.5,
+          "ps": 2.2,
+          "roe": 0.16,
+          "roic": 0.12,
+          "debt_equity": 0.7,
+          "net_margin": 0.12,
+          "gross_margin": 0.5
+        },
+        "sector": "Communication Services"
+      },
+      "error": null,
+      "timestamp": "2026-05-28T14:16:55.727816+00:00",
+      "descripcion": "Alphabet Inc. offers various products and platforms in the United States, Europe, the Middle East, Africa, the Asia-Pacific, Canada, and Latin America. It operates through Google Services, Google Cloud, and Other Bets segments. The Google Services segment provides products and services, including ad"
+    },
+    {
+      "ticker": "KO",
+      "nombre": "Coca-Cola Co.",
+      "categoria": "",
+      "notas": "Dividendero historico, Dividend King",
+      "sector": "Consumer Defensive",
+      "industria": "Beverages - Non-Alcoholic",
+      "precio_actual": 80.91,
+      "market_cap": 348113862656,
+      "currency": "USD",
+      "ratios": {
+        "valoracion": {
+          "pe": 25.44,
+          "forward_pe": 23.23,
+          "peg": 4.12,
+          "pb": 10.35,
+          "ps": 7.06,
+          "ev_ebitda": 22.98,
+          "ev_revenue": 7.79,
+          "dividend_yield": 260.0,
+          "payout_ratio": 64.78
+        },
+        "rentabilidad": {
+          "roe": 43.37,
+          "roa": 9.51,
+          "roic": 0.0,
+          "gross_margin": 61.74,
+          "operating_margin": 35.05,
+          "net_margin": 27.8
+        },
+        "solvencia": {
+          "debt_equity": 124.94,
+          "net_debt_ebitda": 1.84,
+          "current_ratio": 1.36,
+          "quick_ratio": 0.78,
+          "interest_coverage": null,
+          "total_debt": 44646998016,
+          "total_cash": 13820000256,
+          "net_debt": 30826997760.0
+        },
+        "crecimiento": {
+          "revenue_growth": 12.1,
+          "earnings_growth": 18.2,
+          "earnings_quarterly_growth": 17.8
+        },
+        "cashflow": {
+          "free_cashflow": 3124250112,
+          "fcf_ni_ratio": 0.23,
+          "fcf_yield": 0.9,
+          "operating_cashflow": 14631000064
+        }
+      },
+      "valuacion": {
+        "dcf": {
+          "metodo": "DCF 5 años + terminal",
+          "valor_intrinseco": 25.14,
+          "precio_actual": 80.91,
+          "upside_pct": -68.9,
+          "parametros": {
+            "tasa_crecimiento_pct": 12.0,
+            "wacc_pct": 6.0,
+            "g_terminal_pct": 2.5,
+            "fcf_base": 3124250112,
+            "beta": 0.36
+          },
+          "error": null
+        },
+        "graham": {
+          "metodo": "Graham Number",
+          "valor_intrinseco": 149.58,
+          "precio_actual": 80.91,
+          "upside_pct": 84.9,
+          "parametros": {
+            "eps": 3.18,
+            "growth_g_pct": 18.2,
+            "aaa_yield": 4.2,
+            "formula": "EPS × (8.5 + 2g) × 4.4 / AAA_yield"
+          },
+          "error": null
+        },
+        "gordon": {
+          "metodo": "Gordon Growth",
+          "valor_intrinseco": null,
+          "precio_actual": 80.91,
+          "upside_pct": null,
+          "parametros": {},
+          "aplica": true,
+          "error": "r <= g, modelo no aplica"
+        }
+      },
+      "scoring": {
+        "score_global": 48.1,
+        "score_valoracion": 30.0,
+        "score_calidad": 71.0,
+        "score_salud": 38.3,
+        "veredicto": "CARA",
+        "señal": "EVITAR"
+      },
+      "benchmark_comparison": {
+        "pe_vs_sector": -21.1,
+        "ev_ebitda_vs_sector": -76.8,
+        "pb_vs_sector": -158.8,
+        "roe_vs_sector": 116.8,
+        "net_margin_vs_sector": 208.9,
+        "benchmark_used": {
+          "pe": 21.0,
+          "ev_ebitda": 13.0,
+          "pb": 4.0,
+          "ps": 1.8,
+          "roe": 0.2,
+          "roic": 0.14,
+          "debt_equity": 0.7,
+          "net_margin": 0.09,
+          "gross_margin": 0.42
+        },
+        "sector": "Consumer Defensive"
+      },
+      "error": null,
+      "timestamp": "2026-05-28T14:16:55.900825+00:00",
+      "descripcion": "The Coca-Cola Company, a beverage company, manufactures and sells various nonalcoholic beverages in the United States and internationally. The company provides Trademark Coca-Cola, sparkling soft drinks and flavors; water, sports, coffee, and tea; juice, value-added dairy, and plant-based beverages;"
+    },
+    {
+      "ticker": "JNJ",
+      "nombre": "Johnson & Johnson",
+      "categoria": "",
+      "notas": "Dividend King, diversificado",
+      "sector": "Healthcare",
+      "industria": "Drug Manufacturers - General",
+      "precio_actual": 230.955,
+      "market_cap": 555958796288,
+      "currency": "USD",
+      "ratios": {
+        "valoracion": {
+          "pe": 26.76,
+          "forward_pe": 18.17,
+          "peg": 2.99,
+          "pb": 6.85,
+          "ps": 5.77,
+          "ev_ebitda": 17.18,
+          "ev_revenue": 6.12,
+          "dividend_yield": 232.0,
+          "payout_ratio": 60.25
+        },
+        "rentabilidad": {
+          "roe": 26.42,
+          "roa": 8.42,
+          "roic": 0.0,
+          "gross_margin": 68.04,
+          "operating_margin": 27.41,
+          "net_margin": 21.83
+        },
+        "solvencia": {
+          "debt_equity": 67.73,
+          "net_debt_ebitda": 0.96,
+          "current_ratio": 1.02,
+          "quick_ratio": 0.69,
+          "interest_coverage": null,
+          "total_debt": 54987001856,
+          "total_cash": 22051000320,
+          "net_debt": 32936001536.0
+        },
+        "crecimiento": {
+          "revenue_growth": 9.9,
+          "earnings_growth": -52.9,
+          "earnings_quarterly_growth": -52.4
+        },
+        "cashflow": {
+          "free_cashflow": 12511375360,
+          "fcf_ni_ratio": 0.59,
+          "fcf_yield": 2.25,
+          "operating_cashflow": 22869999616
+        }
+      },
+      "valuacion": {
+        "dcf": {
+          "metodo": "DCF 5 años + terminal",
+          "valor_intrinseco": 149.25,
+          "precio_actual": 230.955,
+          "upside_pct": -35.4,
+          "parametros": {
+            "tasa_crecimiento_pct": 4.0,
+            "wacc_pct": 6.0,
+            "g_terminal_pct": 2.5,
+            "fcf_base": 12511375360,
+            "beta": 0.26
+          },
+          "error": null
+        },
+        "graham": {
+          "metodo": "Graham Number",
+          "valor_intrinseco": 76.85,
+          "precio_actual": 230.955,
+          "upside_pct": -66.7,
+          "parametros": {
+            "eps": 8.63,
+            "growth_g_pct": 0,
+            "aaa_yield": 4.2,
+            "formula": "EPS × (8.5 + 2g) × 4.4 / AAA_yield"
+          },
+          "error": null
+        },
+        "gordon": {
+          "metodo": "Gordon Growth",
+          "valor_intrinseco": 108.27,
+          "precio_actual": 230.955,
+          "upside_pct": -53.1,
+          "parametros": {
+            "dividendo_actual": 5.36,
+            "d1": 5.41,
+            "r_pct": 6.0,
+            "g_pct": 1.0
+          },
+          "aplica": true,
+          "error": null
+        }
+      },
+      "scoring": {
+        "score_global": 45.3,
+        "score_valoracion": 26.2,
+        "score_calidad": 62.0,
+        "score_salud": 50.0,
+        "veredicto": "CARA",
+        "señal": "EVITAR"
+      },
+      "benchmark_comparison": {
+        "pe_vs_sector": -21.6,
+        "ev_ebitda_vs_sector": -22.7,
+        "pb_vs_sector": -95.7,
+        "roe_vs_sector": 46.8,
+        "net_margin_vs_sector": 55.9,
+        "benchmark_used": {
+          "pe": 22.0,
+          "ev_ebitda": 14.0,
+          "pb": 3.5,
+          "ps": 3.0,
+          "roe": 0.18,
+          "roic": 0.14,
+          "debt_equity": 0.55,
+          "net_margin": 0.14,
+          "gross_margin": 0.62
+        },
+        "sector": "Healthcare"
+      },
+      "error": null,
+      "timestamp": "2026-05-28T14:16:56.055837+00:00",
+      "descripcion": "Johnson & Johnson, together with its subsidiaries, engages in the research and development, manufacture, and sale of a range of products in the healthcare field worldwide. It operates in two segments, Innovative Medicine and MedTech. The Innovative Medicine segment offers products for various therap"
+    },
+    {
+      "ticker": "YPF",
+      "nombre": "YPF S.A.",
+      "categoria": "",
+      "notas": "Petroleo y gas, empresa estatal",
+      "sector": "Energy",
+      "industria": "Oil & Gas Integrated",
+      "precio_actual": 52.22,
+      "market_cap": 22033512448,
+      "currency": "USD",
+      "ratios": {
+        "valoracion": {
+          "pe": null,
+          "forward_pe": 9.14,
+          "peg": 0.1,
+          "pb": 1.81,
+          "ps": 0.0,
+          "ev_ebitda": 1.84,
+          "ev_revenue": 0.51,
+          "dividend_yield": 0.0,
+          "payout_ratio": 0.0
+        },
+        "rentabilidad": {
+          "roe": -2.94,
+          "roa": 5.39,
+          "roic": 0.0,
+          "gross_margin": 29.96,
+          "operating_margin": 18.99,
+          "net_margin": -1.82
+        },
+        "solvencia": {
+          "debt_equity": 92.45,
+          "net_debt_ebitda": 1.79,
+          "current_ratio": 0.94,
+          "quick_ratio": 0.57,
+          "interest_coverage": null,
+          "total_debt": 14817286946816,
+          "total_cash": 2330515996672,
+          "net_debt": 12486770950144.0
+        },
+        "crecimiento": {
+          "revenue_growth": 42.8,
+          "earnings_growth": 0.0,
+          "earnings_quarterly_growth": 0.0
+        },
+        "cashflow": {
+          "free_cashflow": -1393641914368,
+          "fcf_ni_ratio": 3.02,
+          "fcf_yield": -6325.1,
+          "operating_cashflow": 8208986931200
+        }
+      },
+      "valuacion": {
+        "dcf": {
+          "metodo": "DCF 5 años + terminal",
+          "valor_intrinseco": null,
+          "precio_actual": 52.22,
+          "upside_pct": null,
+          "parametros": {},
+          "error": "FCF negativo o no disponible"
+        },
+        "graham": {
+          "metodo": "Graham Number",
+          "valor_intrinseco": null,
+          "precio_actual": 52.22,
+          "upside_pct": null,
+          "parametros": {},
+          "error": "EPS no disponible o negativo"
+        },
+        "gordon": {
+          "metodo": "Gordon Growth",
+          "valor_intrinseco": null,
+          "precio_actual": 52.22,
+          "upside_pct": null,
+          "parametros": {},
+          "aplica": false,
+          "error": "No paga dividendos"
+        }
+      },
+      "scoring": {
+        "score_global": 42.5,
+        "score_valoracion": 60.0,
+        "score_calidad": 33.0,
+        "score_salud": 26.7,
+        "veredicto": "JUSTA",
+        "señal": "EVITAR"
+      },
+      "benchmark_comparison": {
+        "ev_ebitda_vs_sector": 73.7,
+        "pb_vs_sector": -0.6,
+        "roe_vs_sector": -121.0,
+        "net_margin_vs_sector": -122.8,
+        "benchmark_used": {
+          "pe": 12.0,
+          "ev_ebitda": 7.0,
+          "pb": 1.8,
+          "ps": 1.0,
+          "roe": 0.14,
+          "roic": 0.1,
+          "debt_equity": 0.5,
+          "net_margin": 0.08,
+          "gross_margin": 0.3
+        },
+        "sector": "Energy"
+      },
+      "error": null,
+      "timestamp": "2026-05-28T14:16:56.207042+00:00",
+      "descripcion": "YPF Sociedad Anónima, an energy company, engages in the oil and gas upstream and downstream activities in South America and Argentina. The company operates through the Upstream, Midstream and Downstream, LNG and Integrated Gas, and New Energies segments. It is involved in the exploration and exploit"
+    },
+    {
+      "ticker": "GGAL",
+      "nombre": "Grupo Financiero Galicia",
+      "categoria": "",
+      "notas": "Banco lider Argentina",
+      "sector": "Financial Services",
+      "industria": "Banks - Regional",
+      "precio_actual": 49.66,
+      "market_cap": 8415057920,
+      "currency": "USD",
+      "ratios": {
+        "valoracion": {
+          "pe": 130.68,
+          "forward_pe": 7.48,
+          "peg": 0.18,
+          "pb": 14.4,
+          "ps": 0.0,
+          "ev_ebitda": null,
+          "ev_revenue": 0.27,
+          "dividend_yield": 449.0,
+          "payout_ratio": 404.57
+        },
+        "rentabilidad": {
+          "roe": 2.49,
+          "roa": 0.44,
+          "roic": 0.0,
+          "gross_margin": 0.0,
+          "operating_margin": -3.54,
+          "net_margin": 3.09
+        },
+        "solvencia": {
+          "debt_equity": null,
+          "net_debt_ebitda": null,
+          "current_ratio": null,
+          "quick_ratio": null,
+          "interest_coverage": null,
+          "total_debt": 6668898271232,
+          "total_cash": 5003701911552,
+          "net_debt": 1665196359680.0
+        },
+        "crecimiento": {
+          "revenue_growth": -10.0,
+          "earnings_growth": 0.0,
+          "earnings_quarterly_growth": 0.0
+        },
+        "cashflow": {
+          "free_cashflow": null,
+          "fcf_ni_ratio": null,
+          "fcf_yield": 0.0,
+          "operating_cashflow": -9900381962240
+        }
+      },
+      "valuacion": {
+        "dcf": {
+          "metodo": "DCF 5 años + terminal",
+          "valor_intrinseco": null,
+          "precio_actual": 49.66,
+          "upside_pct": null,
+          "parametros": {},
+          "error": "FCF negativo o no disponible"
+        },
+        "graham": {
+          "metodo": "Graham Number",
+          "valor_intrinseco": 3.38,
+          "precio_actual": 49.66,
+          "upside_pct": -93.2,
+          "parametros": {
+            "eps": 0.38,
+            "growth_g_pct": 0,
+            "aaa_yield": 4.2,
+            "formula": "EPS × (8.5 + 2g) × 4.4 / AAA_yield"
+          },
+          "error": null
+        },
+        "gordon": {
+          "metodo": "Gordon Growth",
+          "valor_intrinseco": 55.08,
+          "precio_actual": 49.66,
+          "upside_pct": 10.9,
+          "parametros": {
+            "dividendo_actual": 2.16,
+            "d1": 2.2,
+            "r_pct": 6.0,
+            "g_pct": 2.0
+          },
+          "aplica": true,
+          "error": null
+        }
+      },
+      "scoring": {
+        "score_global": 22.3,
+        "score_valoracion": 18.8,
+        "score_calidad": 12.0,
+        "score_salud": 50.0,
+        "veredicto": "CARA",
+        "señal": "EVITAR"
+      },
+      "benchmark_comparison": {
+        "pe_vs_sector": -905.2,
+        "pb_vs_sector": -928.6,
+        "roe_vs_sector": -80.8,
+        "net_margin_vs_sector": -86.0,
+        "benchmark_used": {
+          "pe": 13.0,
+          "ev_ebitda": null,
+          "pb": 1.4,
+          "ps": 2.5,
+          "roe": 0.13,
+          "roic": 0.1,
+          "debt_equity": 1.5,
+          "net_margin": 0.22,
+          "gross_margin": null
+        },
+        "sector": "Financial Services"
+      },
+      "error": null,
+      "timestamp": "2026-05-28T14:16:56.366831+00:00",
+      "descripcion": "Grupo Financiero Galicia S.A., a financial service holding company, provides various financial products and services to individuals and companies in Argentina. The company operates through Bank, Naranja X, Insurance, and Other Businesses segments. It offers savings, checking, and time deposits; and "
+    },
+    {
+      "ticker": "BMA",
+      "nombre": "Banco Macro",
+      "categoria": "",
+      "notas": "Banca retail Argentina",
+      "sector": "Financial Services",
+      "industria": "Banks - Regional",
+      "precio_actual": 90.3,
+      "market_cap": 5773694976,
+      "currency": "USD",
+      "ratios": {
+        "valoracion": {
+          "pe": 27.96,
+          "forward_pe": 9.28,
+          "peg": 0.47,
+          "pb": 1.55,
+          "ps": 0.0,
+          "ev_ebitda": null,
+          "ev_revenue": -0.26,
+          "dividend_yield": 562.0,
+          "payout_ratio": 65.7
+        },
+        "rentabilidad": {
+          "roe": 5.5,
+          "roa": 1.37,
+          "roic": 0.0,
+          "gross_margin": 0.0,
+          "operating_margin": 24.06,
+          "net_margin": 7.12
+        },
+        "solvencia": {
+          "debt_equity": null,
+          "net_debt_ebitda": null,
+          "current_ratio": null,
+          "quick_ratio": null,
+          "interest_coverage": null,
+          "total_debt": 1518502412288,
+          "total_cash": 2635059953664,
+          "net_debt": -1116557541376.0
+        },
+        "crecimiento": {
+          "revenue_growth": -3.3,
+          "earnings_growth": -27.4,
+          "earnings_quarterly_growth": -27.4
+        },
+        "cashflow": {
+          "free_cashflow": null,
+          "fcf_ni_ratio": null,
+          "fcf_yield": 0.0,
+          "operating_cashflow": -2055474511872
+        }
+      },
+      "valuacion": {
+        "dcf": {
+          "metodo": "DCF 5 años + terminal",
+          "valor_intrinseco": null,
+          "precio_actual": 90.3,
+          "upside_pct": null,
+          "parametros": {},
+          "error": "FCF negativo o no disponible"
+        },
+        "graham": {
+          "metodo": "Graham Number",
+          "valor_intrinseco": 28.76,
+          "precio_actual": 90.3,
+          "upside_pct": -68.1,
+          "parametros": {
+            "eps": 3.23,
+            "growth_g_pct": 0,
+            "aaa_yield": 4.2,
+            "formula": "EPS × (8.5 + 2g) × 4.4 / AAA_yield"
+          },
+          "error": null
+        },
+        "gordon": {
+          "metodo": "Gordon Growth",
+          "valor_intrinseco": 91.41,
+          "precio_actual": 90.3,
+          "upside_pct": 1.2,
+          "parametros": {
+            "dividendo_actual": 4.79,
+            "d1": 4.84,
+            "r_pct": 6.3,
+            "g_pct": 1.0
+          },
+          "aplica": true,
+          "error": null
+        }
+      },
+      "scoring": {
+        "score_global": 25.8,
+        "score_valoracion": 27.5,
+        "score_calidad": 12.0,
+        "score_salud": 50.0,
+        "veredicto": "CARA",
+        "señal": "EVITAR"
+      },
+      "benchmark_comparison": {
+        "pe_vs_sector": -115.1,
+        "pb_vs_sector": -10.7,
+        "roe_vs_sector": -57.7,
+        "net_margin_vs_sector": -67.6,
+        "benchmark_used": {
+          "pe": 13.0,
+          "ev_ebitda": null,
+          "pb": 1.4,
+          "ps": 2.5,
+          "roe": 0.13,
+          "roic": 0.1,
+          "debt_equity": 1.5,
+          "net_margin": 0.22,
+          "gross_margin": null
+        },
+        "sector": "Financial Services"
+      },
+      "error": null,
+      "timestamp": "2026-05-28T14:16:56.532937+00:00",
+      "descripcion": "Banco Macro S.A. provides various banking products and services to retail and corporate customers in Argentina. It offers various retail banking products and services, such as savings and checking accounts, time deposits, credit and debit cards, consumer finance loans, mortgage loans, automobile loa"
+    },
+    {
+      "ticker": "PAM",
+      "nombre": "Pampa Energia",
+      "categoria": "",
+      "notas": "Generacion electrica Argentina",
+      "sector": "Industrials",
+      "industria": "Conglomerates",
+      "precio_actual": 84.8,
+      "market_cap": 4557491712,
+      "currency": "USD",
+      "ratios": {
+        "valoracion": {
+          "pe": 10.28,
+          "forward_pe": 6.41,
+          "peg": null,
+          "pb": 1.22,
+          "ps": 2.11,
+          "ev_ebitda": 146.51,
+          "ev_revenue": 53.29,
+          "dividend_yield": 0.0,
+          "payout_ratio": 0.0
+        },
+        "rentabilidad": {
+          "roe": 12.1,
+          "roa": 3.36,
+          "roic": 0.0,
+          "gross_margin": 31.97,
+          "operating_margin": 19.37,
+          "net_margin": 20.31
+        },
+        "solvencia": {
+          "debt_equity": 50.44,
+          "net_debt_ebitda": 1.57,
+          "current_ratio": 2.04,
+          "quick_ratio": 1.32,
+          "interest_coverage": null,
+          "total_debt": 1911000064,
+          "total_cash": 677000000,
+          "net_debt": 1234000064.0
+        },
+        "crecimiento": {
+          "revenue_growth": 38.4,
+          "earnings_growth": 39.9,
+          "earnings_quarterly_growth": 39.9
+        },
+        "cashflow": {
+          "free_cashflow": -768600000,
+          "fcf_ni_ratio": -1.75,
+          "fcf_yield": -16.86,
+          "operating_cashflow": 455000000
+        }
+      },
+      "valuacion": {
+        "dcf": {
+          "metodo": "DCF 5 años + terminal",
+          "valor_intrinseco": null,
+          "precio_actual": 84.8,
+          "upside_pct": null,
+          "parametros": {},
+          "error": "FCF negativo o no disponible"
+        },
+        "graham": {
+          "metodo": "Graham Number",
+          "valor_intrinseco": 419.18,
+          "precio_actual": 84.8,
+          "upside_pct": 394.3,
+          "parametros": {
+            "eps": 8.25,
+            "growth_g_pct": 20,
+            "aaa_yield": 4.2,
+            "formula": "EPS × (8.5 + 2g) × 4.4 / AAA_yield"
+          },
+          "error": null
+        },
+        "gordon": {
+          "metodo": "Gordon Growth",
+          "valor_intrinseco": null,
+          "precio_actual": 84.8,
+          "upside_pct": null,
+          "parametros": {},
+          "aplica": false,
+          "error": "No paga dividendos"
+        }
+      },
+      "scoring": {
+        "score_global": 65.0,
+        "score_valoracion": 71.2,
+        "score_calidad": 57.0,
+        "score_salud": 68.3,
+        "veredicto": "BARATA",
+        "señal": "MANTENER"
+      },
+      "benchmark_comparison": {
+        "pe_vs_sector": 48.6,
+        "ev_ebitda_vs_sector": -1027.0,
+        "pb_vs_sector": 61.9,
+        "roe_vs_sector": -19.3,
+        "net_margin_vs_sector": 153.9,
+        "benchmark_used": {
+          "pe": 20.0,
+          "ev_ebitda": 13.0,
+          "pb": 3.2,
+          "ps": 1.5,
+          "roe": 0.15,
+          "roic": 0.11,
+          "debt_equity": 0.65,
+          "net_margin": 0.08,
+          "gross_margin": 0.32
+        },
+        "sector": "Industrials"
+      },
+      "error": null,
+      "timestamp": "2026-05-28T14:16:56.749789+00:00",
+      "descripcion": "Pampa Energía S.A. operates as an integrated power company in Argentina. The company operates through Oil and Gas; Generation; Petrochemicals; and Holding, Transportation and Others segments. It generates electricity through thermal plants, hydroelectric plants, and wind farms with a 5,472 megawatt "
+    },
+    {
+      "ticker": "BRK-B",
+      "nombre": "Berkshire Hathaway B",
+      "categoria": "",
+      "notas": "Fondo de Buffett, holding diversificado",
+      "sector": "Financial Services",
+      "industria": "Insurance - Diversified",
+      "precio_actual": 480.26,
+      "market_cap": 1035850612736,
+      "currency": "USD",
+      "ratios": {
+        "valoracion": {
+          "pe": 14.3,
+          "forward_pe": 22.54,
+          "peg": 10.06,
+          "pb": 0.0,
+          "ps": 2.76,
+          "ev_ebitda": -2.25,
+          "ev_revenue": -0.71,
+          "dividend_yield": 0.0,
+          "payout_ratio": 0.0
+        },
+        "rentabilidad": {
+          "roe": 10.5,
+          "roa": 5.39,
+          "roic": 0.0,
+          "gross_margin": 27.78,
+          "operating_margin": 14.35,
+          "net_margin": 19.3
+        },
+        "solvencia": {
+          "debt_equity": 17.67,
+          "net_debt_ebitda": -2.28,
+          "current_ratio": 2.88,
+          "quick_ratio": 2.7,
+          "interest_coverage": null,
+          "total_debt": 128885997568,
+          "total_cash": 397383008256,
+          "net_debt": -268497010688.0
+        },
+        "crecimiento": {
+          "revenue_growth": 4.4,
+          "earnings_growth": 119.6,
+          "earnings_quarterly_growth": 119.6
+        },
+        "cashflow": {
+          "free_cashflow": 61228249088,
+          "fcf_ni_ratio": 0.84,
+          "fcf_yield": 5.91,
+          "operating_cashflow": 45504000000
+        }
+      },
+      "valuacion": {
+        "dcf": {
+          "metodo": "DCF 5 años + terminal",
+          "valor_intrinseco": 1697.2,
+          "precio_actual": 480.26,
+          "upside_pct": 253.4,
+          "parametros": {
+            "tasa_crecimiento_pct": 12.0,
+            "wacc_pct": 7.0,
+            "g_terminal_pct": 2.5,
+            "fcf_base": 61228249088,
+            "beta": 0.62
+          },
+          "error": null
+        },
+        "graham": {
+          "metodo": "Graham Number",
+          "valor_intrinseco": 1706.69,
+          "precio_actual": 480.26,
+          "upside_pct": 255.4,
+          "parametros": {
+            "eps": 33.59,
+            "growth_g_pct": 20,
+            "aaa_yield": 4.2,
+            "formula": "EPS × (8.5 + 2g) × 4.4 / AAA_yield"
+          },
+          "error": null
+        },
+        "gordon": {
+          "metodo": "Gordon Growth",
+          "valor_intrinseco": null,
+          "precio_actual": 480.26,
+          "upside_pct": null,
+          "parametros": {},
+          "aplica": false,
+          "error": "No paga dividendos"
+        }
+      },
+      "scoring": {
+        "score_global": 58.7,
+        "score_valoracion": 72.5,
+        "score_calidad": 35.0,
+        "score_salud": 78.3,
+        "veredicto": "BARATA",
+        "señal": "EVITAR"
+      },
+      "benchmark_comparison": {
+        "pe_vs_sector": -10.0,
+        "roe_vs_sector": -19.2,
+        "net_margin_vs_sector": -12.3,
+        "benchmark_used": {
+          "pe": 13.0,
+          "ev_ebitda": null,
+          "pb": 1.4,
+          "ps": 2.5,
+          "roe": 0.13,
+          "roic": 0.1,
+          "debt_equity": 1.5,
+          "net_margin": 0.22,
+          "gross_margin": null
+        },
+        "sector": "Financial Services"
+      },
+      "error": null,
+      "timestamp": "2026-05-28T14:16:56.911712+00:00",
+      "descripcion": "Berkshire Hathaway Inc., together with its subsidiaries, engages in the insurance, freight rail transportation, and utility businesses. The company provides property, casualty, life, accident, and health insurance and reinsurance; operates railroad systems in North America; generates, transmits, sto"
+    }
+  ]
 }
