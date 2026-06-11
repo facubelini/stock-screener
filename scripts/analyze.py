@@ -217,13 +217,14 @@ def analizar_ticker(ticker_info: dict) -> dict:
             "gordon": calcular_gordon(info),
         }
 
-        # Scoring
+        # Scoring (benchmark por industria específica, fallback a sector)
         sector = resultado["sector"]
+        industria = resultado["industria"]
         resultado["scoring"] = calcular_score(
-            resultado["ratios"], resultado["valuacion"], sector
+            resultado["ratios"], resultado["valuacion"], sector, industria
         )
 
-        # Comparación con benchmark sectorial
+        # Comparación con benchmark de industria/sector
         ratios_flat = {
             "pe": resultado["ratios"]["valoracion"].get("pe"),
             "ev_ebitda": resultado["ratios"]["valoracion"].get("ev_ebitda"),
@@ -231,7 +232,7 @@ def analizar_ticker(ticker_info: dict) -> dict:
             "roe": (resultado["ratios"]["rentabilidad"].get("roe") or 0) / 100,
             "net_margin": (resultado["ratios"]["rentabilidad"].get("net_margin") or 0) / 100,
         }
-        resultado["benchmark_comparison"] = compare_to_benchmark(ratios_flat, sector)
+        resultado["benchmark_comparison"] = compare_to_benchmark(ratios_flat, sector, industria)
 
         print("✓")
 

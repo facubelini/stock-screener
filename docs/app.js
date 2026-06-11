@@ -697,6 +697,11 @@ function generarPuntosClave(acc) {
   const bm  = bc.benchmark_used        || {};
   const val = acc.valuacion            || {};
 
+  // Contra qué se compara: industria específica (Semiconductors) si está
+  // cubierta, sino sector. data.json viejo no trae benchmark_nivel: cae a "sector".
+  const bmNivel  = bc.benchmark_nivel === 'industria' ? 'industria' : 'sector';
+  const bmNombre = bc.benchmark_nombre ?? bc.sector ?? '';
+
   const fortalezas  = [];
   const debilidades = [];
 
@@ -711,9 +716,9 @@ function generarPuntosClave(acc) {
   if (pe !== null && peBm) {
     const ratio = pe / peBm;
     if (ratio <= 0.75)
-      fortalezas.push({ texto: `P/E de ${pe.toFixed(1)}x, un ${Math.round((1 - ratio) * 100)}% más barato que su sector (${peBm.toFixed(0)}x)`, cat: 'valoracion' });
+      fortalezas.push({ texto: `P/E de ${pe.toFixed(1)}x, un ${Math.round((1 - ratio) * 100)}% más barato que su ${bmNivel} (${bmNombre}: ${peBm.toFixed(0)}x)`, cat: 'valoracion' });
     else if (ratio >= 1.5)
-      debilidades.push({ texto: `P/E de ${pe.toFixed(1)}x, un ${Math.round((ratio - 1) * 100)}% más caro que su sector (${peBm.toFixed(0)}x)`, cat: 'valoracion' });
+      debilidades.push({ texto: `P/E de ${pe.toFixed(1)}x, un ${Math.round((ratio - 1) * 100)}% más caro que su ${bmNivel} (${bmNombre}: ${peBm.toFixed(0)}x)`, cat: 'valoracion' });
   } else if (pe !== null) {
     if (pe <= 10 && pe > 0)
       fortalezas.push({ texto: `P/E muy bajo de ${pe.toFixed(1)}x — se paga poco por cada $1 de ganancia`, cat: 'valoracion' });
@@ -773,11 +778,11 @@ function generarPuntosClave(acc) {
   if (nm !== null) {
     const thr = nmBm ? Math.max(nmBm * 1.3, 15) : 15;
     if (nm >= thr)
-      fortalezas.push({ texto: `Margen neto del ${nm.toFixed(0)}%${nmBm ? ` vs sector ${nmBm.toFixed(0)}%` : ''} — alta rentabilidad por cada dólar vendido`, cat: 'calidad' });
+      fortalezas.push({ texto: `Margen neto del ${nm.toFixed(0)}%${nmBm ? ` vs ${bmNivel} ${nmBm.toFixed(0)}%` : ''} — alta rentabilidad por cada dólar vendido`, cat: 'calidad' });
     else if (nm < 0)
       debilidades.push({ texto: `Pérdida neta: margen del ${nm.toFixed(1)}% — por cada $100 vendidos, pierde $${Math.abs(nm).toFixed(1)}`, cat: 'calidad' });
     else if (nmBm && nm < nmBm * 0.5 && nmBm > 4)
-      debilidades.push({ texto: `Margen neto del ${nm.toFixed(1)}%, por debajo del sector (${nmBm.toFixed(0)}%)`, cat: 'calidad' });
+      debilidades.push({ texto: `Margen neto del ${nm.toFixed(1)}%, por debajo de su ${bmNivel} (${bmNombre}: ${nmBm.toFixed(0)}%)`, cat: 'calidad' });
   }
 
   if (gm !== null && gm >= 60)
@@ -1036,7 +1041,9 @@ function renderCard(acc) {
       </div>
       <div class="card-badges">
         ${acc.categoria ? `<span class="badge badge-categoria">${esc(acc.categoria)}</span>` : ''}
-        ${acc.sector && acc.sector !== 'Unknown' ? `<span class="badge badge-sector">${esc(acc.sector)}</span>` : ''}
+        ${acc.industria
+          ? `<span class="badge badge-sector" title="Sector: ${esc(acc.sector)} · Industria: ${esc(acc.industria)}">${esc(acc.industria)}</span>`
+          : (acc.sector && acc.sector !== 'Unknown' ? `<span class="badge badge-sector">${esc(acc.sector)}</span>` : '')}
         ${acc.yf_symbol && acc.yf_symbol !== acc.ticker ? `<span class="badge badge-via" title="Datos obtenidos con este símbolo de Yahoo Finance">vía ${esc(acc.yf_symbol)}</span>` : ''}
       </div>
     </div>
@@ -1149,15 +1156,21 @@ function renderExpanded(acc) {
       </div>
     </div>`;
 
-  const bmHtml = bc.sector && bm ? `<div class="expanded-section">
-    <div class="expanded-title">VS. BENCHMARK — ${bc.sector.toUpperCase()}</div>
+  // Nombre y nivel del grupo de comparación (industria específica o sector)
+  const bmNombre = bc.benchmark_nombre ?? bc.sector ?? '';
+  const bmNivel  = bc.benchmark_nivel === 'industria' ? 'INDUSTRIA'
+                 : bc.benchmark_nivel === 'mercado' ? 'MERCADO GENERAL' : 'SECTOR';
+  const nvl = bmNivel === 'INDUSTRIA' ? 'industria' : 'sector';
+
+  const bmHtml = bmNombre && bm ? `<div class="expanded-section">
+    <div class="expanded-title">VS. BENCHMARK — ${esc(bmNombre).toUpperCase()} <span class="bm-nivel-tag">${bmNivel}</span></div>
     <div class="benchmark-grid">
-      ${benchItem('P/E sector', bm.pe, 'x')}
-      ${benchItem('EV/EBITDA sector', bm.ev_ebitda, 'x')}
-      ${benchItem('P/B sector', bm.pb, 'x')}
-      ${benchItem('ROE sector', bm.roe ? (bm.roe * 100).toFixed(1) + '%' : null)}
-      ${benchItem('ROIC sector', bm.roic ? (bm.roic * 100).toFixed(1) + '%' : null)}
-      ${benchItem('D/E sector', bm.debt_equity, 'x')}
+      ${benchItem(`P/E ${nvl}`, bm.pe, 'x')}
+      ${benchItem(`EV/EBITDA ${nvl}`, bm.ev_ebitda, 'x')}
+      ${benchItem(`P/B ${nvl}`, bm.pb, 'x')}
+      ${benchItem(`ROE ${nvl}`, bm.roe ? (bm.roe * 100).toFixed(1) + '%' : null)}
+      ${benchItem(`ROIC ${nvl}`, bm.roic ? (bm.roic * 100).toFixed(1) + '%' : null)}
+      ${benchItem(`D/E ${nvl}`, bm.debt_equity, 'x')}
     </div>
     <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;">
       ${bc.pe_vs_sector          !== undefined ? diffItem('P/E',     bc.pe_vs_sector)          : ''}
@@ -1166,6 +1179,7 @@ function renderExpanded(acc) {
       ${bc.roe_vs_sector         !== undefined ? diffItem('ROE',     bc.roe_vs_sector, false)  : ''}
       ${bc.net_margin_vs_sector  !== undefined ? diffItem('Mg.Neto', bc.net_margin_vs_sector, false) : ''}
     </div>
+    <div class="bm-hint">Positivo = mejor que la mediana de su ${nvl}. Cuanto más específico el grupo de comparación, más justa la evaluación.</div>
   </div>` : '';
 
   const descHtml = acc.descripcion ? `<div class="expanded-section">
@@ -1245,6 +1259,7 @@ function aplicarFiltros() {
   const verd   = document.getElementById('filterVeredicto').value;
   const senal  = document.getElementById('filterSenal').value;
   const sector = document.getElementById('filterSector').value;
+  const indus  = document.getElementById('filterIndustria')?.value || '';
   const search = document.getElementById('searchInput').value.toLowerCase();
   const sortBy = document.getElementById('sortBy').value;
 
@@ -1253,7 +1268,8 @@ function aplicarFiltros() {
     if (verd   && acc.scoring?.veredicto !== verd) return false;
     if (senal  && acc.scoring?.señal !== senal) return false;
     if (sector && acc.sector !== sector) return false;
-    if (search && !`${acc.ticker} ${acc.nombre} ${acc.categoria}`.toLowerCase().includes(search)) return false;
+    if (indus  && acc.industria !== indus) return false;
+    if (search && !`${acc.ticker} ${acc.nombre} ${acc.categoria} ${acc.industria || ''}`.toLowerCase().includes(search)) return false;
     return true;
   });
 
@@ -1297,6 +1313,28 @@ function poblarFiltros(data) {
 
   const selSec = document.getElementById('filterSector');
   sectors.forEach(s => { const o = document.createElement('option'); o.value = o.textContent = s; selSec.appendChild(o); });
+
+  // Industrias agrupadas por sector para que el select largo sea navegable
+  const selInd = document.getElementById('filterIndustria');
+  if (selInd) {
+    const porSector = new Map();
+    data.acciones.forEach(a => {
+      if (!a.industria) return;
+      const sec = a.sector && a.sector !== 'Unknown' ? a.sector : 'Otros';
+      if (!porSector.has(sec)) porSector.set(sec, new Set());
+      porSector.get(sec).add(a.industria);
+    });
+    [...porSector.keys()].sort().forEach(sec => {
+      const og = document.createElement('optgroup');
+      og.label = sec;
+      [...porSector.get(sec)].sort().forEach(ind => {
+        const o = document.createElement('option');
+        o.value = o.textContent = ind;
+        og.appendChild(o);
+      });
+      selInd.appendChild(og);
+    });
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1306,7 +1344,7 @@ async function cargarDatos() {
   const grid = document.getElementById('screenerGrid');
 
   // Reset filtros dinámicos
-  ['filterCategoria', 'filterSector'].forEach(id => {
+  ['filterCategoria', 'filterSector', 'filterIndustria'].forEach(id => {
     const sel = document.getElementById(id);
     if (sel) sel.innerHTML = '<option value="">Todas</option>';
   });
@@ -1430,7 +1468,7 @@ document.addEventListener('DOMContentLoaded', () => {
   cargarDatos();
 
   // Filtros y ordenamiento
-  ['filterCategoria', 'filterVeredicto', 'filterSenal', 'filterSector', 'sortBy']
+  ['filterCategoria', 'filterVeredicto', 'filterSenal', 'filterSector', 'filterIndustria', 'sortBy']
     .forEach(id => document.getElementById(id)?.addEventListener('change', aplicarFiltros));
 
   // Búsqueda con debounce: re-renderizar cientos de cards en cada tecla traba el input

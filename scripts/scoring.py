@@ -79,16 +79,19 @@ def score_upside(upside_pct):
         return 5
 
 
-def calcular_score(ratios: dict, valuacion: dict, sector: str) -> dict:
+def calcular_score(ratios: dict, valuacion: dict, sector: str, industria: str = None) -> dict:
     """
     Calcula el score global 0-100 y los veredictos.
 
     Componentes:
     - Valoración 40%: P/E, EV/EBITDA, P/B vs benchmark + upside DCF/Graham
     - Calidad 40%: ROE, ROIC, márgenes, crecimiento FCF
-    - Salud financiera 20%: D/E, Interest Coverage, Current Ratio
+    - Salud financiera 20%: Deuda Neta/EBITDA, D/E, Current Ratio
+
+    El benchmark usa la industria específica de Yahoo si está cubierta
+    (ej. Semiconductors), con fallback al sector (ej. Technology).
     """
-    benchmark = get_benchmark(sector)
+    benchmark = get_benchmark(sector, industria)
 
     # ── VALORACIÓN (40%) ─────────────────────────────────────────────────────
     val_scores = []

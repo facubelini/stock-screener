@@ -444,6 +444,11 @@ select:focus, input:focus {
   color: var(--purple);
   border: 1px solid rgba(188,140,255,0.2);
   font-size: 0.55rem;
+  /* Las industrias de Yahoo pueden ser largas ("Semiconductor Equipment...") */
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: help;
 }
 
 .badge-via {
@@ -657,6 +662,28 @@ select:focus, input:focus {
 .val-card-error { font-size: 0.65rem; color: var(--text-muted); font-style: italic; }
 
 /* Benchmark */
+.bm-nivel-tag {
+  display: inline-block;
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 1px 6px;
+  border-radius: 3px;
+  margin-left: 6px;
+  vertical-align: middle;
+  background: rgba(188,140,255,0.12);
+  color: var(--purple);
+  border: 1px solid rgba(188,140,255,0.25);
+}
+
+.bm-hint {
+  margin-top: 8px;
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  font-style: italic;
+  line-height: 1.4;
+}
+
 .benchmark-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
 .bench-item {
   display: flex; justify-content: space-between; align-items: center;
