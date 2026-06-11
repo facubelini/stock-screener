@@ -446,6 +446,14 @@ select:focus, input:focus {
   font-size: 0.55rem;
 }
 
+.badge-via {
+  background: rgba(139,148,158,0.1);
+  color: var(--text-secondary);
+  border: 1px solid rgba(139,148,158,0.2);
+  font-size: 0.55rem;
+  cursor: help;
+}
+
 /* Score ring */
 .card-score-section {
   display: flex;
@@ -489,6 +497,7 @@ select:focus, input:focus {
 .veredicto-BARATA { background: var(--green-bg); color: var(--green); border: 1px solid rgba(63,185,80,0.3); }
 .veredicto-JUSTA  { background: var(--yellow-bg); color: var(--yellow); border: 1px solid rgba(210,153,34,0.3); }
 .veredicto-CARA   { background: var(--red-bg); color: var(--red); border: 1px solid rgba(248,81,73,0.3); }
+.veredicto-SIN_DATOS { background: rgba(139,148,158,0.08); color: var(--text-secondary); border: 1px solid rgba(139,148,158,0.25); }
 
 .senal-pill {
   font-family: var(--font-mono); font-size: 0.6rem;
@@ -498,6 +507,7 @@ select:focus, input:focus {
 .senal-mod   { background: rgba(57,211,83,0.07); color: #68d9a4; border: 1px solid rgba(68,217,132,0.2); }
 .senal-hold  { background: rgba(210,153,34,0.1); color: var(--yellow); border: 1px solid rgba(210,153,34,0.2); }
 .senal-avoid { background: rgba(248,81,73,0.1); color: var(--red); border: 1px solid rgba(248,81,73,0.2); }
+.senal-nd    { background: rgba(139,148,158,0.08); color: var(--text-muted); border: 1px solid rgba(139,148,158,0.2); }
 
 /* Price row */
 .card-price-row {

@@ -10,6 +10,7 @@ const RATIO_REFS = {
     label: 'P/E Ratio',
     desc: 'Precio sobre Ganancias por acción. Cuánto se paga por cada $1 de ganancia.',
     lowerIsBetter: true,
+    negative: { label: 'Negativo — la empresa tiene pérdidas', cls: 'ref-bad' },
     thresholds: [
       { max: 10,       label: 'Muy barato',  cls: 'ref-great' },
       { max: 15,       label: 'Barato',       cls: 'ref-good' },
@@ -17,12 +18,13 @@ const RATIO_REFS = {
       { max: 35,       label: 'Elevado',      cls: 'ref-warn' },
       { max: Infinity, label: 'Muy caro',     cls: 'ref-bad' },
     ],
-    note: 'S&P 500 histórico: ~16-18x. Varía mucho por sector. Tech puede justificar 30-40x con alto crecimiento.',
+    note: 'S&P 500 histórico: ~16-18x. Varía mucho por sector. Tech puede justificar 30-40x con alto crecimiento. P/E negativo = pérdidas, no baratura.',
   },
   forward_pe: {
     label: 'Forward P/E',
     desc: 'P/E basado en ganancias estimadas para los próximos 12 meses.',
     lowerIsBetter: true,
+    negative: { label: 'Negativo — se esperan pérdidas', cls: 'ref-bad' },
     thresholds: [
       { max: 12,       label: 'Muy barato',  cls: 'ref-great' },
       { max: 18,       label: 'Razonable',    cls: 'ref-neutral' },
@@ -35,6 +37,7 @@ const RATIO_REFS = {
     label: 'PEG Ratio',
     desc: 'P/E dividido por tasa de crecimiento de ganancias. Ajusta la valoración por crecimiento.',
     lowerIsBetter: true,
+    negative: { label: 'Negativo — pérdidas o crecimiento negativo', cls: 'ref-bad' },
     thresholds: [
       { max: 0.75,     label: 'Infravalorada', cls: 'ref-great' },
       { max: 1.0,      label: 'Justa',          cls: 'ref-good' },
@@ -48,6 +51,7 @@ const RATIO_REFS = {
     label: 'P/B (Price-to-Book)',
     desc: 'Precio sobre Valor Libro. Cuánto se paga por encima de los activos netos.',
     lowerIsBetter: true,
+    negative: { label: 'No significativo — patrimonio neto negativo', cls: 'ref-neutral' },
     thresholds: [
       { max: 1.0,      label: 'Muy barato',  cls: 'ref-great' },
       { max: 2.0,      label: 'Barato',       cls: 'ref-good' },
@@ -55,7 +59,7 @@ const RATIO_REFS = {
       { max: 7.0,      label: 'Elevado',      cls: 'ref-warn' },
       { max: Infinity, label: 'Muy caro',     cls: 'ref-bad' },
     ],
-    note: 'Bancos: < 1.5 es aceptable. Tech puede justificar P/B alto por activos intangibles (marcas, IP).',
+    note: 'Bancos: < 1.5 es aceptable. Tech puede justificar P/B alto por intangibles. P/B negativo (equity negativo por buybacks, ej. Altria) no es interpretable.',
   },
   ps: {
     label: 'P/S (Price-to-Sales)',
@@ -73,6 +77,7 @@ const RATIO_REFS = {
     label: 'EV/EBITDA',
     desc: 'Valor Empresa sobre EBITDA. Neutral a estructura de capital e impuestos.',
     lowerIsBetter: true,
+    negative: { label: 'Negativo — EBITDA negativo (pérdidas operativas)', cls: 'ref-bad' },
     thresholds: [
       { max: 6,        label: 'Muy barato',  cls: 'ref-great' },
       { max: 10,       label: 'Barato',       cls: 'ref-good' },
@@ -100,6 +105,7 @@ const RATIO_REFS = {
     label: 'Payout Ratio',
     desc: '% de ganancias netas distribuidas como dividendo.',
     lowerIsBetter: true,
+    negative: { label: 'No significativo — paga dividendo con EPS negativo', cls: 'ref-warn' },
     thresholds: [
       { max: 30,       label: 'Muy sostenible', cls: 'ref-great' },
       { max: 55,       label: 'Sostenible',      cls: 'ref-good' },
@@ -189,16 +195,17 @@ const RATIO_REFS = {
   },
   debt_equity: {
     label: 'Debt/Equity',
-    desc: 'Deuda total / Patrimonio neto. Nivel de apalancamiento financiero. (yfinance lo da en %)',
+    desc: 'Deuda total / Patrimonio neto. Nivel de apalancamiento financiero.',
     lowerIsBetter: true,
+    negative: { label: 'No significativo — patrimonio neto negativo', cls: 'ref-neutral' },
     thresholds: [
-      { max: 30,       label: 'Muy bajo',    cls: 'ref-great' },
-      { max: 80,       label: 'Moderado',    cls: 'ref-good' },
-      { max: 150,      label: 'Elevado',     cls: 'ref-neutral' },
-      { max: 300,      label: 'Alto',        cls: 'ref-warn' },
+      { max: 0.3,      label: 'Muy bajo',    cls: 'ref-great' },
+      { max: 0.8,      label: 'Moderado',    cls: 'ref-good' },
+      { max: 1.5,      label: 'Elevado',     cls: 'ref-neutral' },
+      { max: 3.0,      label: 'Alto',        cls: 'ref-warn' },
       { max: Infinity, label: 'Muy alto',    cls: 'ref-bad' },
     ],
-    note: 'yfinance reporta D/E en %. Utilities y bancos toleran más deuda por naturaleza del negocio.',
+    note: 'D/E de 1.0x = la deuda iguala al patrimonio. Utilities y bancos toleran más deuda por la naturaleza de su negocio.',
   },
   net_debt_ebitda: {
     label: 'Deuda Neta / EBITDA',
@@ -304,6 +311,7 @@ const REPO_NAME    = 'stock-screener';
 // ═══════════════════════════════════════════════════════════════════════
 const state = {
   data: null,
+  byTicker: null,   // Map ticker → acción, para el render lazy del detalle
   filtered: [],
   sortDir: 'desc',
 };
@@ -367,6 +375,9 @@ const Tooltip = {
 function getActiveThreshold(key, rawValue) {
   const ref = RATIO_REFS[key];
   if (!ref) return null;
+  // Un múltiplo negativo (P/E con pérdidas, P/B con equity negativo) no debe
+  // caer en "< 10 = Muy barato": tiene su propia interpretación.
+  if (rawValue < 0 && ref.negative) return ref.negative;
   return ref.thresholds.find(t => rawValue <= t.max) ?? ref.thresholds.at(-1);
 }
 
@@ -376,6 +387,10 @@ function buildTooltipHtml(key, rawValue, displayValue) {
   const active = getActiveThreshold(key, rawValue);
 
   let rows = '';
+  if (ref.negative) {
+    const isCur = active === ref.negative;
+    rows += `<div class="tip-row ${ref.negative.cls}${isCur ? ' tip-active' : ''}">&lt;&nbsp;0: ${ref.negative.label}${isCur ? '&nbsp;◄' : ''}</div>`;
+  }
   let prev = null;
   for (const t of ref.thresholds) {
     const isCurrent = t === active;
@@ -539,8 +554,10 @@ async function pollWorkflow(token, count) {
   // Esperar a que GitHub cree el run del workflow
   await sleep(5000);
 
+  // Pedir runs del workflow específico (no el último run global, que puede
+  // ser el cron diario u otro workflow y haría reportar un estado ajeno)
   const runsResp = await githubFetch(
-    `/repos/${REPO_OWNER}/${REPO_NAME}/actions/runs?per_page=1&event=push`, token
+    `/repos/${REPO_OWNER}/${REPO_NAME}/actions/workflows/update.yml/runs?per_page=1`, token
   );
   if (!runsResp.ok) {
     showStatus('⚠ No se pudo verificar el workflow. Revisá GitHub Actions manualmente.', 'warning');
@@ -587,6 +604,14 @@ async function pollWorkflow(token, count) {
 // ═══════════════════════════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════════════════════════
+// Escapa HTML en strings que vienen del Excel o de yfinance (nombres,
+// notas, descripciones) para que un "&" o "<" no rompa el render.
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+
 function fmt(val, suffix = '', decimals = 2) {
   if (val === null || val === undefined) return '<span class="text-nd">N/D</span>';
   const n = parseFloat(val);
@@ -635,6 +660,7 @@ function scoreColor(s) {
 
 function senalClass(s) {
   if (!s) return 'senal-hold';
+  if (s.includes('INSUFICIENTES')) return 'senal-nd';
   if (s.includes('COMPRA') && !s.includes('MODERADA')) return 'senal-buy';
   if (s.includes('MODERADA')) return 'senal-mod';
   if (s.includes('MANTENER')) return 'senal-hold';
@@ -783,8 +809,8 @@ function generarPuntosClave(acc) {
   }
 
   // ── SALUD FINANCIERA ──────────────────────────────────────────────────
-  const de   = fmtRaw(sol.debt_equity);
-  const ic   = fmtRaw(sol.interest_coverage);
+  // debt_equity viene de yfinance en % (80 = 0.8x): convertir a veces
+  const de   = sol.debt_equity != null ? fmtRaw(sol.debt_equity / 100) : null;
   const curR = fmtRaw(sol.current_ratio);
   const ndEb = fmtRaw(sol.net_debt_ebitda);
 
@@ -792,23 +818,16 @@ function generarPuntosClave(acc) {
     if (ndEb < 0)
       fortalezas.push({ texto: `Posición de caja neta — tiene más efectivo que deuda (señal muy positiva)`, cat: 'salud' });
     else if (ndEb >= 5)
-      debilidades.push({ texto: `Deuda Neta/EBITDA de ${ndEb.toFixed(1)}x — necesitaría ~${Math.ceil(ndEb)} años para pagar toda la deuda`, cat: 'salud' });
+      debilidades.push({ texto: `Deuda Neta/EBITDA de ${ndEb.toFixed(1)}x — necesitaría ~${Math.ceil(ndEb)} años de EBITDA para pagar toda la deuda`, cat: 'salud' });
     else if (ndEb >= 3.5)
       debilidades.push({ texto: `Apalancamiento elevado: ${ndEb.toFixed(1)}x Deuda Neta/EBITDA`, cat: 'salud' });
-  } else if (de !== null) {
-    if (de <= 20)
-      fortalezas.push({ texto: `Balance muy sólido: D/E del ${Math.round(de)}%, casi sin deuda`, cat: 'salud' });
-    else if (de >= 300)
-      debilidades.push({ texto: `Deuda muy alta: D/E del ${Math.round(de)}%`, cat: 'salud' });
-    else if (de >= 150)
-      debilidades.push({ texto: `Apalancamiento elevado: D/E del ${Math.round(de)}%`, cat: 'salud' });
-  }
-
-  if (ic !== null) {
-    if (ic >= 10)
-      fortalezas.push({ texto: `Cubre sus intereses ${ic.toFixed(0)}x con el EBIT — posición financiera muy segura`, cat: 'salud' });
-    else if (ic < 1.5 && ic > 0)
-      debilidades.push({ texto: `Cobertura de intereses baja (${ic.toFixed(1)}x) — riesgo de default si caen las ganancias`, cat: 'salud' });
+  } else if (de !== null && de >= 0) {
+    if (de <= 0.2)
+      fortalezas.push({ texto: `Balance muy sólido: la deuda es solo el ${Math.round(de * 100)}% del patrimonio neto`, cat: 'salud' });
+    else if (de >= 3)
+      debilidades.push({ texto: `Deuda muy alta: ${de.toFixed(1)}x el patrimonio neto`, cat: 'salud' });
+    else if (de >= 1.5)
+      debilidades.push({ texto: `Apalancamiento elevado: deuda de ${de.toFixed(1)}x el patrimonio neto`, cat: 'salud' });
   }
 
   if (curR !== null) {
@@ -830,24 +849,33 @@ function generarExplicacion(acc) {
   const veredicto = sc.veredicto || 'JUSTA';
   const { fortalezas, debilidades } = generarPuntosClave(acc);
 
-  if (!fortalezas.length && !debilidades.length) {
-    if (veredicto === 'BARATA') return 'Valoración atractiva relativa al sector. Datos limitados para más detalle.';
-    if (veredicto === 'CARA')   return 'Cotiza con prima respecto al sector y al valor intrínseco. Datos limitados.';
-    return 'Valoración en línea con el sector. Datos insuficientes para análisis detallado.';
+  if (veredicto === 'SIN DATOS') {
+    return 'Yahoo Finance no provee múltiplos de valoración para este activo (frecuente en ETFs, bonos o mercados poco cubiertos). No se puede emitir un veredicto fundamentado.';
   }
 
-  const pick = (arr, cat, n) => arr.filter(p => p.cat === cat).slice(0, n).map(p => p.texto);
-  const puntos = [
-    ...pick(fortalezas, 'valoracion', 1),
-    ...pick(fortalezas, 'calidad', 1),
-    ...pick(debilidades, 'valoracion', 1),
-    ...pick(debilidades, 'calidad', 1),
-  ].filter(Boolean).slice(0, 3);
+  const fVal = fortalezas.filter(p => p.cat === 'valoracion').map(p => p.texto);
+  const dVal = debilidades.filter(p => p.cat === 'valoracion').map(p => p.texto);
+  const fOtro = fortalezas.filter(p => p.cat !== 'valoracion').map(p => p.texto);
+  const dOtro = debilidades.filter(p => p.cat !== 'valoracion').map(p => p.texto);
 
-  return (puntos.length
-    ? puntos
-    : [...fortalezas.slice(0, 2), ...debilidades.slice(0, 1)].map(p => p.texto)
-  ).join('. ') + '.';
+  const frases = [];
+
+  // 1ª frase: SIEMPRE explica el veredicto (que es de valoración).
+  // Así nunca queda una card "CARA" con solo elogios, ni una "BARATA"
+  // sin decir por qué está barata.
+  if (veredicto === 'BARATA') {
+    frases.push(fVal[0] ?? 'Sus múltiplos cotizan con descuento frente a la mediana de su sector');
+  } else if (veredicto === 'CARA') {
+    frases.push(dVal[0] ?? 'Sus múltiplos cotizan con prima frente al sector y al valor intrínseco estimado');
+  } else {
+    frases.push(fVal[0] ?? dVal[0] ?? 'Valoración en línea con la mediana de su sector');
+  }
+
+  // 2ª-3ª frase: lo más relevante de calidad/salud (1 positivo + 1 negativo)
+  if (fOtro[0]) frases.push(fOtro[0]);
+  if (dOtro[0]) frases.push(dOtro[0]);
+
+  return frases.slice(0, 3).join('. ') + '.';
 }
 
 /**
@@ -865,7 +893,7 @@ function renderRazonamiento(acc) {
     { label: 'CALIDAD',    peso: '40%', key: 'score_calidad',
       desc: 'ROE, ROIC, márgenes, crecimiento de ventas y EPS' },
     { label: 'SALUD',      peso: '20%', key: 'score_salud',
-      desc: 'Deuda/EBITDA, Deuda/Equity, liquidez y cobertura de intereses' },
+      desc: 'Deuda Neta/EBITDA, Deuda/Equity y liquidez corriente' },
   ];
 
   const metodologia = `<div class="razon-metodologia">
@@ -970,10 +998,10 @@ function renderCard(acc) {
   if (acc.error && !acc.ratios?.valoracion) {
     return `<div class="stock-card has-error">
       <div class="card-header">
-        <div><div class="card-ticker">${acc.ticker}</div><div class="card-name">${acc.nombre || '—'}</div></div>
-        <div class="card-badges">${acc.categoria ? `<span class="badge badge-categoria">${acc.categoria}</span>` : ''}</div>
+        <div><div class="card-ticker">${esc(acc.ticker)}</div><div class="card-name">${esc(acc.nombre) || '—'}</div></div>
+        <div class="card-badges">${acc.categoria ? `<span class="badge badge-categoria">${esc(acc.categoria)}</span>` : ''}</div>
       </div>
-      <div class="error-card-body">Datos no disponibles<div class="error-msg">${acc.error}</div></div>
+      <div class="error-card-body">Sin datos disponibles<div class="error-msg">${esc(acc.error)}</div></div>
     </div>`;
   }
 
@@ -984,12 +1012,13 @@ function renderCard(acc) {
   const ups = bestUpside(acc);
   const precio = acc.precio_actual;
   const cardId = `card-${acc.ticker.replace(/[^a-zA-Z0-9]/g, '_')}`;
+  const veredicto = sc.veredicto || '—';
 
   const upsHtml = ups !== null && ups !== undefined
     ? `<span class="upside-badge ${ups >= 0 ? 'upside-pos' : 'upside-neg'}">${ups >= 0 ? '+' : ''}${ups.toFixed(1)}% DCF</span>`
     : '';
 
-  // Valores brutos para ref dots
+  // Valores brutos para ref dots (D/E viene en % de yfinance: pasar a veces)
   const peR   = fmtRaw(v.pe);
   const evR   = fmtRaw(v.ev_ebitda);
   const pbR   = fmtRaw(v.pb);
@@ -997,32 +1026,33 @@ function renderCard(acc) {
   const roeR  = fmtRaw(r.roe);
   const roicR = fmtRaw(r.roic);
   const nmR   = fmtRaw(r.net_margin);
-  const deR   = fmtRaw(s.debt_equity);
+  const deR   = s.debt_equity != null ? fmtRaw(s.debt_equity / 100) : null;
 
-  return `<div class="stock-card" id="${cardId}" data-ticker="${acc.ticker}">
+  return `<div class="stock-card" id="${cardId}" data-ticker="${esc(acc.ticker)}">
     <div class="card-header">
       <div>
-        <div class="card-ticker">${acc.ticker}</div>
-        <div class="card-name" title="${acc.nombre || ''}">${acc.nombre || '—'}</div>
+        <div class="card-ticker">${esc(acc.ticker)}</div>
+        <div class="card-name" title="${esc(acc.nombre)}">${esc(acc.nombre) || '—'}</div>
       </div>
       <div class="card-badges">
-        ${acc.categoria ? `<span class="badge badge-categoria">${acc.categoria}</span>` : ''}
-        ${acc.sector && acc.sector !== 'Unknown' ? `<span class="badge badge-sector">${acc.sector}</span>` : ''}
+        ${acc.categoria ? `<span class="badge badge-categoria">${esc(acc.categoria)}</span>` : ''}
+        ${acc.sector && acc.sector !== 'Unknown' ? `<span class="badge badge-sector">${esc(acc.sector)}</span>` : ''}
+        ${acc.yf_symbol && acc.yf_symbol !== acc.ticker ? `<span class="badge badge-via" title="Datos obtenidos con este símbolo de Yahoo Finance">vía ${esc(acc.yf_symbol)}</span>` : ''}
       </div>
     </div>
 
     <div class="card-score-section">
       ${renderScoreCircle(sc.score_global)}
       <div class="verdicts">
-        <div class="veredicto-pill veredicto-${sc.veredicto || 'JUSTA'}">${sc.veredicto || '—'}</div>
-        <div class="senal-pill ${senalClass(sc.señal)}">${sc.señal || '—'}</div>
+        <div class="veredicto-pill veredicto-${esc(veredicto).replace(/\s+/g, '_')}">${esc(veredicto)}</div>
+        <div class="senal-pill ${senalClass(sc.señal)}">${esc(sc.señal) || '—'}</div>
       </div>
     </div>
     <div class="card-explicacion">${generarExplicacion(acc)}</div>
 
     <div class="card-price-row">
       <span class="price-current">${precio ? fmtCurrency(precio, acc.currency) : 'N/D'}</span>
-      <span class="price-currency">${acc.currency || 'USD'}</span>
+      <span class="price-currency">${esc(acc.currency) || 'USD'}</span>
       ${upsHtml}
     </div>
 
@@ -1040,9 +1070,7 @@ function renderCard(acc) {
     <button class="card-expand-toggle" onclick="toggleExpand('${cardId}',event)">
       <span>VER DETALLE COMPLETO</span><span class="expand-arrow">▾</span>
     </button>
-    <div class="card-expanded" id="${cardId}-expanded">
-      ${renderExpanded(acc)}
-    </div>
+    <div class="card-expanded" id="${cardId}-expanded" data-ticker="${esc(acc.ticker)}"></div>
   </div>`;
 }
 
@@ -1110,11 +1138,10 @@ function renderExpanded(acc) {
     <div class="expanded-section">
       <div class="expanded-title">SOLVENCIA &amp; CRECIMIENTO</div>
       <div class="modal-ratios-grid">
-        ${expandRatio('debt_equity',       'D/E',           fmtRaw(s.debt_equity),        fmt(s.debt_equity, 'x'))}
+        ${expandRatio('debt_equity',       'D/E',           s.debt_equity != null ? fmtRaw(s.debt_equity / 100) : null, s.debt_equity != null ? fmt(s.debt_equity / 100, 'x') : fmt(null))}
         ${expandRatio('net_debt_ebitda',   'ND/EBITDA',     fmtRaw(s.net_debt_ebitda),    fmt(s.net_debt_ebitda, 'x'))}
         ${expandRatio('current_ratio',     'Current Ratio', fmtRaw(s.current_ratio),      fmt(s.current_ratio, 'x'))}
         ${expandRatio('quick_ratio',       'Quick Ratio',   fmtRaw(s.quick_ratio),        fmt(s.quick_ratio, 'x'))}
-        ${expandRatio('interest_coverage', 'Int. Coverage', fmtRaw(s.interest_coverage),  fmt(s.interest_coverage, 'x'))}
         ${expandRatio('revenue_growth',    'Rev. Growth',   fmtRaw(cr.revenue_growth),    fmt(cr.revenue_growth, '%'))}
         ${expandRatio('earnings_growth',   'EPS Growth',    fmtRaw(cr.earnings_growth),   fmt(cr.earnings_growth, '%'))}
         ${expandRatio('fcf_yield',         'FCF Yield',     fmtRaw(cf.fcf_yield),         fmt(cf.fcf_yield, '%'))}
@@ -1143,12 +1170,12 @@ function renderExpanded(acc) {
 
   const descHtml = acc.descripcion ? `<div class="expanded-section">
     <div class="expanded-title">DESCRIPCIÓN</div>
-    <div style="font-size:.72rem;color:var(--text-secondary);line-height:1.6">${acc.descripcion}…</div>
+    <div style="font-size:.72rem;color:var(--text-secondary);line-height:1.6">${esc(acc.descripcion)}…</div>
   </div>` : '';
 
   const notasHtml = acc.notas ? `<div class="expanded-section">
     <div class="expanded-title">NOTAS</div>
-    <div class="notes-text">${acc.notas}</div>
+    <div class="notes-text">${esc(acc.notas)}</div>
   </div>` : '';
 
   return razonHtml + valHtml + ratiosHtml + bmHtml + descHtml + notasHtml;
@@ -1192,6 +1219,17 @@ function toggleExpand(cardId, event) {
   const expanded = document.getElementById(`${cardId}-expanded`);
   const btn      = card?.querySelector('.card-expand-toggle');
   if (!card || !expanded) return;
+
+  // Render lazy: con cientos de tickers, generar el detalle de TODAS las
+  // cards por adelantado vuelve lento el grid. Se genera recién al abrir.
+  if (!expanded.dataset.loaded) {
+    const acc = state.byTicker?.get(expanded.dataset.ticker);
+    if (acc) {
+      expanded.innerHTML = renderExpanded(acc);
+      expanded.dataset.loaded = '1';
+    }
+  }
+
   const isOpen = expanded.classList.contains('open');
   expanded.classList.toggle('open', !isOpen);
   btn?.classList.toggle('expanded', !isOpen);
@@ -1290,6 +1328,7 @@ async function cargarDatos() {
     }
 
     state.data = data;
+    state.byTicker = new Map(data.acciones.map(a => [a.ticker, a]));
 
     document.getElementById('updateDate').textContent = fmtDate(data.ultima_actualizacion);
     document.getElementById('statTotal').textContent  = data.total_tickers;
@@ -1393,7 +1432,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // Filtros y ordenamiento
   ['filterCategoria', 'filterVeredicto', 'filterSenal', 'filterSector', 'sortBy']
     .forEach(id => document.getElementById(id)?.addEventListener('change', aplicarFiltros));
-  document.getElementById('searchInput')?.addEventListener('input', aplicarFiltros);
+
+  // Búsqueda con debounce: re-renderizar cientos de cards en cada tecla traba el input
+  let searchTimer;
+  document.getElementById('searchInput')?.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(aplicarFiltros, 150);
+  });
 
   // Dirección de sort
   document.getElementById('sortDir').addEventListener('click', () => {

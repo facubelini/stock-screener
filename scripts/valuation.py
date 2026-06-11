@@ -15,6 +15,25 @@ def safe_div(a, b):
         return None
 
 
+def monedas_mezcladas(info: dict) -> str | None:
+    """Detecta ADRs cuyos estados financieros están en otra moneda.
+
+    Ej.: IRSA reporta FCF en ARS pero el ADR cotiza en USD. Mezclar ambos
+    en un DCF da upsides absurdos (+200.000%). Devuelve mensaje de error
+    si las monedas difieren, None si está todo bien.
+    """
+    fin_cur = info.get("financialCurrency")
+    cur = info.get("currency")
+    if fin_cur and cur and fin_cur != cur:
+        return f"Estados financieros en {fin_cur} pero cotiza en {cur}: valuación por flujos no comparable"
+    return None
+
+
+# Upside máximo creíble: por encima de esto asumimos datos inconsistentes
+# de yfinance (monedas, shares desactualizados, etc.) antes que una ganga real
+MAX_UPSIDE_PCT = 500
+
+
 def calcular_dcf(info: dict, growth_history: list = None) -> dict:
     """
     DCF simplificado de 5 años + valor terminal.
@@ -39,6 +58,12 @@ def calcular_dcf(info: dict, growth_history: list = None) -> dict:
         beta = info.get("beta", 1.0) or 1.0
         total_debt = info.get("totalDebt", 0) or 0
         total_cash = info.get("totalCash", 0) or 0
+
+        error_moneda = monedas_mezcladas(info)
+        if error_moneda:
+            resultado["error"] = error_moneda
+            resultado["precio_actual"] = precio_actual
+            return resultado
 
         if not fcf or not shares or fcf <= 0:
             resultado["error"] = "FCF negativo o no disponible"
@@ -90,6 +115,13 @@ def calcular_dcf(info: dict, growth_history: list = None) -> dict:
 
         if valor_por_accion and precio_actual:
             upside = ((valor_por_accion - precio_actual) / precio_actual) * 100
+            if upside > MAX_UPSIDE_PCT:
+                resultado["error"] = (
+                    f"Upside calculado fuera de rango razonable (+{upside:,.0f}%): "
+                    "datos de yfinance posiblemente inconsistentes"
+                )
+                resultado["precio_actual"] = precio_actual
+                return resultado
             resultado["valor_intrinseco"] = round(valor_por_accion, 2)
             resultado["upside_pct"] = round(upside, 1)
 
@@ -140,6 +172,13 @@ def calcular_graham(info: dict) -> dict:
 
         if graham_price and precio_actual:
             upside = ((graham_price - precio_actual) / precio_actual) * 100
+            if upside > MAX_UPSIDE_PCT:
+                resultado["error"] = (
+                    f"Upside fuera de rango razonable (+{upside:,.0f}%): "
+                    "EPS posiblemente en otra moneda que el precio"
+                )
+                resultado["precio_actual"] = precio_actual
+                return resultado
             resultado["valor_intrinseco"] = round(graham_price, 2)
             resultado["upside_pct"] = round(upside, 1)
 
@@ -205,6 +244,13 @@ def calcular_gordon(info: dict) -> dict:
 
         if gordon_price and precio_actual:
             upside = ((gordon_price - precio_actual) / precio_actual) * 100
+            if upside > MAX_UPSIDE_PCT:
+                resultado["error"] = (
+                    f"Upside fuera de rango razonable (+{upside:,.0f}%): "
+                    "dividendo posiblemente en otra moneda que el precio"
+                )
+                resultado["precio_actual"] = precio_actual
+                return resultado
             resultado["valor_intrinseco"] = round(gordon_price, 2)
             resultado["upside_pct"] = round(upside, 1)
 

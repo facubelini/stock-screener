@@ -10,13 +10,22 @@ def clamp(val, min_val=0, max_val=100):
     return max(min_val, min(max_val, val))
 
 
-def score_ratio_vs_benchmark(valor, benchmark, menor_es_mejor=True, peso=1.0):
+def score_ratio_vs_benchmark(valor, benchmark, menor_es_mejor=True, score_si_negativo=15):
     """
     Puntúa un ratio comparándolo contra el benchmark sectorial.
     Devuelve 0-100 donde 100 = mucho mejor que el sector.
+
+    score_si_negativo: qué devolver si el ratio es negativo en métricas
+    "menor es mejor". Un P/E o EV/EBITDA negativo significa pérdidas (malo,
+    15), NUNCA baratura — sin este guard, -5/28 <= 0.5 puntuaba 95 y una
+    empresa con pérdidas salía como BARATA. Para P/B o D/E con equity
+    negativo el ratio no es interpretable → pasar 50 (neutral).
     """
     if valor is None or benchmark is None or benchmark == 0:
         return 50  # neutral si no hay datos
+
+    if menor_es_mejor and valor < 0:
+        return score_si_negativo
 
     ratio = valor / benchmark
 
@@ -95,7 +104,8 @@ def calcular_score(ratios: dict, valuacion: dict, sector: str) -> dict:
 
     pb = ratios.get("valoracion", {}).get("pb")
     pb_bm = benchmark.get("pb")
-    val_scores.append(score_ratio_vs_benchmark(pb, pb_bm, menor_es_mejor=True))
+    # P/B negativo = equity negativo (común tras buybacks masivos): neutral
+    val_scores.append(score_ratio_vs_benchmark(pb, pb_bm, menor_es_mejor=True, score_si_negativo=50))
 
     # Upside DCF y Graham
     dcf = valuacion.get("dcf", {})
@@ -157,7 +167,8 @@ def calcular_score(ratios: dict, valuacion: dict, sector: str) -> dict:
     de = ratios.get("solvencia", {}).get("debt_equity")
     de_bm = (benchmark.get("debt_equity") or 0.70) * 100  # yfinance da en %
     if de is not None:
-        sal_scores.append(score_ratio_vs_benchmark(de, de_bm, menor_es_mejor=True))
+        # D/E negativo = equity negativo, no interpretable: neutral
+        sal_scores.append(score_ratio_vs_benchmark(de, de_bm, menor_es_mejor=True, score_si_negativo=50))
     else:
         sal_scores.append(50)
 
@@ -174,18 +185,20 @@ def calcular_score(ratios: dict, valuacion: dict, sector: str) -> dict:
     else:
         sal_scores.append(50)
 
-    interest_cov = ratios.get("solvencia", {}).get("interest_coverage")
-    if interest_cov is not None:
-        if interest_cov >= 10:
-            sal_scores.append(90)
-        elif interest_cov >= 5:
-            sal_scores.append(75)
-        elif interest_cov >= 3:
-            sal_scores.append(55)
-        elif interest_cov >= 1.5:
-            sal_scores.append(30)
+    # Deuda Neta / EBITDA: cuántos años de EBITDA harían falta para pagar
+    # la deuda neta. Negativo = caja neta (más efectivo que deuda).
+    nd_ebitda = ratios.get("solvencia", {}).get("net_debt_ebitda")
+    if nd_ebitda is not None:
+        if nd_ebitda < 0:
+            sal_scores.append(95)
+        elif nd_ebitda <= 1.5:
+            sal_scores.append(85)
+        elif nd_ebitda <= 3.0:
+            sal_scores.append(65)
+        elif nd_ebitda <= 4.5:
+            sal_scores.append(40)
         else:
-            sal_scores.append(10)
+            sal_scores.append(15)
     else:
         sal_scores.append(50)
 
@@ -197,6 +210,24 @@ def calcular_score(ratios: dict, valuacion: dict, sector: str) -> dict:
         + score_calidad * 0.40
         + score_salud * 0.20
     )
+
+    # ── SIN DATOS: no emitir veredicto sin evidencia de valoración ────────────
+    # Si no hay NINGÚN múltiplo ni upside, el veredicto saldría "JUSTA" por
+    # puro default (todos los componentes en 50). Eso es una señal falsa:
+    # mejor decir explícitamente que no hay datos suficientes.
+    datos_valoracion = sum(
+        x is not None for x in [pe, ev_ebitda, pb]
+    ) + (1 if upsides else 0)
+
+    if datos_valoracion == 0:
+        return {
+            "score_global": None,
+            "score_valoracion": None,
+            "score_calidad": round(clamp(score_calidad), 1),
+            "score_salud": round(clamp(score_salud), 1),
+            "veredicto": "SIN DATOS",
+            "señal": "DATOS INSUFICIENTES",
+        }
 
     # ── VEREDICTOS ─────────────────────────────────────────────────────────────
     if score_valoracion >= 70:

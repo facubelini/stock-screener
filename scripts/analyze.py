@@ -3,7 +3,9 @@
 
 import json
 import os
+import re
 import sys
+import time
 import traceback
 from datetime import datetime, timezone
 from pathlib import Path
@@ -34,6 +36,21 @@ TICKER_COL_CANDIDATES = ["ticker", "codigo", "symbol", "simbolo", "accion", "cod
 NOMBRE_COL_CANDIDATES = ["nombre", "name", "company", "empresa"]
 CAT_COL_CANDIDATES    = ["categoria", "category", "sector", "grupo"]
 NOTAS_COL_CANDIDATES  = ["notas", "notes", "nota", "comentario"]
+
+# Filas del Excel que no son tickers (etiquetas contables, separadores, etc.)
+NO_TICKER_WORDS = {
+    "DIVIDENDOS", "EFECTIVO", "CASH", "TOTAL", "SUBTOTAL",
+    "ACCIONES", "CEDEARS", "BONOS", "CRIPTO", "OTROS",
+}
+
+# Formato de ticker válido: alfanumérico con . o - internos, sin espacios,
+# máx 10 caracteres ("AL 30" o "GD 29" son bonos, no equities de Yahoo)
+TICKER_RE = re.compile(r"^[A-Z0-9][A-Z0-9.\-]{0,9}$")
+
+
+def es_ticker_valido(t: str) -> bool:
+    """True si el string parece un ticker de equity consultable en Yahoo."""
+    return t not in NO_TICKER_WORDS and bool(TICKER_RE.match(t))
 
 
 def _find_col(df: "pd.DataFrame", candidates: list[str]):
@@ -75,9 +92,13 @@ def leer_tickers(path: Path) -> list[dict]:
         return str(val).strip() if pd.notna(val) else ""
 
     tickers = []
+    omitidos = []
     for _, row in df.iterrows():
         ticker = str(row.get(ticker_col, "")).strip().upper()
         if not ticker or ticker == "NAN":
+            continue
+        if not es_ticker_valido(ticker):
+            omitidos.append(ticker)
             continue
         tickers.append({
             "ticker":    ticker,
@@ -87,7 +108,43 @@ def leer_tickers(path: Path) -> list[dict]:
         })
 
     print(f"[analyze] Tickers encontrados en Excel: {len(tickers)}")
+    if omitidos:
+        print(f"[analyze] Filas omitidas (no son tickers): {', '.join(omitidos)}")
     return tickers
+
+
+def _candidatos_simbolo(ticker: str) -> list[str]:
+    """Lista de símbolos a probar en Yahoo Finance para un ticker.
+
+    Si el ticker no tiene sufijo de mercado, probar también las variantes
+    .BA (BYMA, Argentina) y .SA (B3, Brasil). Rescata tickers locales como
+    YPFD → YPFD.BA o PRIO3 → PRIO3.SA que con el símbolo pelado dan 404.
+    """
+    candidatos = [ticker]
+    if "." not in ticker:
+        candidatos += [f"{ticker}.BA", f"{ticker}.SA"]
+    return candidatos
+
+
+def _fetch_info(symbol: str):
+    """Pide info a yfinance con 1 reintento para errores transitorios.
+
+    Devuelve (info, None) si hay datos con precio, o (None, motivo) si no.
+    Los 404 no se reintentan (el símbolo no existe); otros errores sí
+    (rate limit, red) tras una pausa breve.
+    """
+    for intento in range(2):
+        try:
+            info = yf.Ticker(symbol).info
+            if info and (info.get("regularMarketPrice") or info.get("currentPrice")):
+                return info, None
+            return None, "sin datos de precio"
+        except Exception as e:
+            msg = f"{type(e).__name__}: {str(e)}"
+            if "404" in msg or intento == 1:
+                return None, msg
+            time.sleep(2)
+    return None, "error desconocido"
 
 
 def analizar_ticker(ticker_info: dict) -> dict:
@@ -100,6 +157,7 @@ def analizar_ticker(ticker_info: dict) -> dict:
         "nombre": ticker_info["nombre"],
         "categoria": ticker_info["categoria"],
         "notas": ticker_info["notas"],
+        "yf_symbol": None,
         "sector": None,
         "industria": None,
         "precio_actual": None,
@@ -114,12 +172,23 @@ def analizar_ticker(ticker_info: dict) -> dict:
     }
 
     try:
-        yf_ticker = yf.Ticker(ticker)
-        info = yf_ticker.info
+        # Probar el símbolo tal cual y, si falla, las variantes .BA / .SA
+        info = None
+        ultimo_motivo = None
+        for symbol in _candidatos_simbolo(ticker):
+            info, motivo = _fetch_info(symbol)
+            if info:
+                resultado["yf_symbol"] = symbol
+                if symbol != ticker:
+                    print(f"(vía {symbol})", end=" ", flush=True)
+                break
+            ultimo_motivo = motivo
 
-        # Validar que yfinance devolvió datos reales
-        if not info or not info.get("regularMarketPrice") and not info.get("currentPrice"):
-            resultado["error"] = "yfinance no devolvió datos de precio para este ticker"
+        if not info:
+            resultado["error"] = (
+                f"No encontrado en Yahoo Finance (probado: {', '.join(_candidatos_simbolo(ticker))}). "
+                f"Puede estar deslistado o no cotizar en mercados cubiertos. Último error: {ultimo_motivo}"
+            )
             print("✗ sin datos")
             return resultado
 

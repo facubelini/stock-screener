@@ -28,22 +28,41 @@ def safe_round(val, decimals=2):
         return None
 
 
+def pct(val, decimals=2):
+    """Convierte fracción a porcentaje PRESERVANDO None.
+
+    Importante: sin dato debe quedar None (la UI muestra N/D y el scoring
+    lo trata neutral). Convertir None a 0% inventa un dato falso que
+    castiga injustamente a la empresa.
+    """
+    if val is None:
+        return None
+    return safe_round(val * 100, decimals)
+
+
 def calcular_valoracion(info: dict, financials: dict) -> dict:
     """Calcula ratios de valoración."""
+    # EV/EBITDA negativo tiene dos causas opuestas: EBITDA < 0 (pérdidas,
+    # malo) o EV < 0 (más caja que market cap, rarísimo y de hecho bueno).
+    # Si el negativo viene por EV, el múltiplo no es interpretable: None.
+    # La posición de caja ya se premia en salud vía Deuda Neta/EBITDA < 0.
+    ev_ebitda = info.get("enterpriseToEbitda")
+    ebitda = info.get("ebitda")
+    if ev_ebitda is not None and ev_ebitda < 0 and ebitda and ebitda > 0:
+        ev_ebitda = None
+
     return {
         "pe": safe_round(info.get("trailingPE")),
         "forward_pe": safe_round(info.get("forwardPE")),
-        "peg": safe_round(info.get("pegRatio")),
+        "peg": safe_round(info.get("pegRatio") or info.get("trailingPegRatio")),
         "pb": safe_round(info.get("priceToBook")),
         "ps": safe_round(info.get("priceToSalesTrailing12Months")),
-        "ev_ebitda": safe_round(info.get("enterpriseToEbitda")),
+        "ev_ebitda": safe_round(ev_ebitda),
         "ev_revenue": safe_round(info.get("enterpriseToRevenue")),
-        "dividend_yield": safe_round(
-            (info.get("dividendYield") or 0) * 100, 2
-        ),
-        "payout_ratio": safe_round(
-            (info.get("payoutRatio") or 0) * 100, 2
-        ),
+        # yfinance >= 0.2.54 ya devuelve dividendYield en porcentaje (2.6 = 2.6%)
+        "dividend_yield": safe_round(info.get("dividendYield")),
+        # payoutRatio sigue siendo fracción (0.65 = 65%)
+        "payout_ratio": pct(info.get("payoutRatio")),
     }
 
 
@@ -61,12 +80,12 @@ def calcular_rentabilidad(info: dict) -> dict:
     roic = safe_div(ebit * (1 - tax), invested_capital) if ebit else None
 
     return {
-        "roe": safe_round((info.get("returnOnEquity") or 0) * 100, 2),
-        "roa": safe_round((info.get("returnOnAssets") or 0) * 100, 2),
-        "roic": safe_round((roic or 0) * 100, 2),
-        "gross_margin": safe_round((info.get("grossMargins") or 0) * 100, 2),
-        "operating_margin": safe_round((info.get("operatingMargins") or 0) * 100, 2),
-        "net_margin": safe_round((info.get("profitMargins") or 0) * 100, 2),
+        "roe": pct(info.get("returnOnEquity")),
+        "roa": pct(info.get("returnOnAssets")),
+        "roic": pct(roic),
+        "gross_margin": pct(info.get("grossMargins")),
+        "operating_margin": pct(info.get("operatingMargins")),
+        "net_margin": pct(info.get("profitMargins")),
     }
 
 
@@ -74,14 +93,15 @@ def calcular_solvencia(info: dict) -> dict:
     """Calcula ratios de solvencia y liquidez."""
     ebitda = info.get("ebitda")
     net_debt = (info.get("totalDebt", 0) or 0) - (info.get("totalCash", 0) or 0)
-    net_debt_ebitda = safe_div(net_debt, ebitda)
+    # Con EBITDA negativo el ratio no es interpretable (un valor negativo
+    # parecería "caja neta" cuando en realidad la empresa pierde plata)
+    net_debt_ebitda = safe_div(net_debt, ebitda) if ebitda and ebitda > 0 else None
 
     return {
         "debt_equity": safe_round(info.get("debtToEquity")),
         "net_debt_ebitda": safe_round(net_debt_ebitda),
         "current_ratio": safe_round(info.get("currentRatio")),
         "quick_ratio": safe_round(info.get("quickRatio")),
-        "interest_coverage": safe_round(info.get("coverageRatio")),
         "total_debt": info.get("totalDebt"),
         "total_cash": info.get("totalCash"),
         "net_debt": safe_round(net_debt),
@@ -91,15 +111,9 @@ def calcular_solvencia(info: dict) -> dict:
 def calcular_crecimiento(info: dict) -> dict:
     """Calcula métricas de crecimiento."""
     return {
-        "revenue_growth": safe_round(
-            (info.get("revenueGrowth") or 0) * 100, 2
-        ),
-        "earnings_growth": safe_round(
-            (info.get("earningsGrowth") or 0) * 100, 2
-        ),
-        "earnings_quarterly_growth": safe_round(
-            (info.get("earningsQuarterlyGrowth") or 0) * 100, 2
-        ),
+        "revenue_growth": pct(info.get("revenueGrowth")),
+        "earnings_growth": pct(info.get("earningsGrowth")),
+        "earnings_quarterly_growth": pct(info.get("earningsQuarterlyGrowth")),
     }
 
 
@@ -115,6 +129,6 @@ def calcular_cashflow(info: dict) -> dict:
     return {
         "free_cashflow": fcf,
         "fcf_ni_ratio": safe_round(fcf_ni_ratio),
-        "fcf_yield": safe_round((fcf_yield or 0) * 100, 2),
+        "fcf_yield": pct(fcf_yield),
         "operating_cashflow": info.get("operatingCashflow"),
     }
